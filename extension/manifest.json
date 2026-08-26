@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Покана за Google ревю (Setmore)",
+  "version": "1.0.0",
+  "description": "Добавя бутон в Setmore, който отваря Viber или WhatsApp с готова покана клиентът да остави отзив в Google.",
+  "permissions": [
+    "storage",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.setmore.com/*"
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Настройки на поканата за ревю"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.setmore.com/*"
+      ],
+      "js": [
+        "shared.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

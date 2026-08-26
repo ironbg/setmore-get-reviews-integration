@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <title>Настройки — Покана за Google ревю</title>
+  <style>
+    body { font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 620px; margin: 32px auto; padding: 0 20px; color: #23201d; }
+    h1 { font-size: 1.25rem; }
+    label { display: block; margin-top: 18px; font-weight: 600; font-size: .9rem; }
+    label small { font-weight: 400; color: #6b635c; display: block; }
+    input, textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 9px 11px; border: 1px solid #ddd7d0; border-radius: 8px; margin-top: 5px; }
+    textarea { resize: vertical; }
+    button { margin-top: 20px; font: 600 15px/1 system-ui, sans-serif; background: #6b7f5e; color: #fff; border: none; border-radius: 8px; padding: 11px 20px; cursor: pointer; }
+    button:hover { background: #55684a; }
+    #saved { color: #55684a; font-weight: 600; margin-left: 12px; }
+    .note { background: #f6f5f3; border-radius: 8px; padding: 12px 14px; font-size: .9rem; color: #6b635c; }
+    code { background: #eeeae5; padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Покана за Google ревю — настройки</h1>
+
+  <p class="note">
+    Линкът за отзив се взима от Google Business Profile: <em>Заявки за отзиви → Копирай линка</em>.
+    Изглежда като <code>https://g.page/r/...</code>
+  </p>
+
+  <label>Име на студиото
+    <input id="studioName" type="text" placeholder="Студио Релакс">
+  </label>
+
+  <label>Линк за отзив в Google
+    <input id="googleReviewLink" type="url" placeholder="https://g.page/r/...">
+  </label>
+
+  <label>Код на държавата <small>без плюс — за България е 359</small>
+    <input id="defaultCountryCode" type="text" placeholder="359">
+  </label>
+
+  <label>Текст на съобщението
+    <small>{име} се заменя със собственото име, {студио} с името на студиото, {линк} с линка</small>
+    <textarea id="template" rows="8"></textarea>
+  </label>
+
+  <button id="save" type="button">Запази</button><span id="saved" hidden>Запазено ✓</span>
+
+  <script src="shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

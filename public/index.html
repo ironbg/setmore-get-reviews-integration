@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Покани за Google ревю</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1 id="studioName">Покани за Google ревю</h1>
+      <span id="demoBadge" class="badge badge-warn" hidden>демо данни</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel" aria-labelledby="periodHeading">
+      <h2 id="periodHeading">1. Кои часове</h2>
+      <div class="quick-dates" role="group" aria-label="Бърз избор на период">
+        <button type="button" class="chip" data-range="today">Днес</button>
+        <button type="button" class="chip" data-range="yesterday">Вчера</button>
+        <button type="button" class="chip" data-range="week">Последните 7 дни</button>
+      </div>
+      <div class="date-row">
+        <label>От <input type="date" id="fromDate"></label>
+        <label>До <input type="date" id="toDate"></label>
+        <button type="button" id="reloadBtn" class="btn btn-primary">Покажи</button>
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" id="hideSent"> Скрий вече поканените
+      </label>
+    </section>
+
+    <section class="panel" aria-labelledby="messageHeading">
+      <h2 id="messageHeading">2. Съобщението</h2>
+      <label class="field">
+        <span>Шаблон</span>
+        <select id="templateSelect"></select>
+      </label>
+      <label class="field">
+        <span>Текст <small>(може да го промениш; {име}, {студио} и {линк} се попълват автоматично)</small></span>
+        <textarea id="templateText" rows="6"></textarea>
+      </label>
+      <div class="preview">
+        <span class="preview-label">Така ще го получи клиентът:</span>
+        <p id="previewText"></p>
+      </div>
+      <p id="linkWarning" class="warn" hidden>
+        Липсва линк към Google профила ти. Добави <code>googleReviewLink</code> в <code>config.json</code>,
+        иначе съобщенията тръгват без линк.
+      </p>
+    </section>
+
+    <section class="panel" aria-labelledby="clientsHeading">
+      <h2 id="clientsHeading">3. Клиенти</h2>
+      <p id="statusLine" class="status">Зареждане…</p>
+      <ul id="list" class="list"></ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

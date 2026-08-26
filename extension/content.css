@@ -1,0 +1,71 @@
+#gr-launcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2147483000;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: #6b7f5e;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+}
+#gr-launcher:hover { background: #55684a; }
+
+#gr-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 84px;
+  z-index: 2147483000;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  background: #fff;
+  color: #23201d;
+  border: 1px solid #e3ded8;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+  padding: 14px;
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#gr-panel[hidden] { display: none; }
+
+#gr-panel h2 { font-size: 14px; margin: 0 0 10px; font-weight: 650; }
+#gr-panel label { display: block; font-size: 12px; color: #6b635c; margin: 8px 0 3px; }
+#gr-panel input,
+#gr-panel textarea,
+#gr-panel select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 7px 9px;
+  border: 1px solid #e3ded8;
+  border-radius: 7px;
+  background: #fff;
+  color: #23201d;
+}
+#gr-panel textarea { resize: vertical; }
+
+#gr-actions { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+#gr-actions button {
+  flex: 1 1 auto;
+  font: 600 13px/1 system-ui, sans-serif;
+  border: none;
+  border-radius: 7px;
+  padding: 10px 12px;
+  color: #fff;
+  cursor: pointer;
+}
+#gr-wa { background: #25d366; }
+#gr-vb { background: #7360f2; }
+#gr-copy { background: #6b635c; }
+#gr-actions button:disabled { opacity: .45; cursor: not-allowed; }
+
+#gr-hint { font-size: 12px; color: #6b635c; margin: 10px 0 0; }
+#gr-hint a { color: #6b7f5e; }
+#gr-hint.gr-warn { color: #8a5d10; }
