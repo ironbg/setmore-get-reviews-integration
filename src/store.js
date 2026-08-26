@@ -83,6 +83,43 @@ function lastInviteForPhone(phone) {
   return invites.sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
 }
 
+/**
+ * Влива поканите от резервното копие на разширението.
+ *
+ * Разширението пази своята история в Chrome, а таблото — в sent.json. Това
+ * ги събира, за да не се окаже клиент „непоканен“ тук само защото поканата е
+ * тръгнала от разширението.
+ *
+ * @param {Record<string, {date: string, channel: string}>} invites
+ */
+function mergeInvites(invites) {
+  const data = getSentMap();
+  let added = 0;
+
+  for (const [rawPhone, value] of Object.entries(invites || {})) {
+    const digits = String(rawPhone).replace(/\D/g, '');
+    if (digits.length < 8) continue;
+
+    const phone = `+${digits}`;
+    const at = new Date(value && value.date ? value.date : value);
+    if (Number.isNaN(at.getTime())) continue;
+
+    const id = `ext-${digits}`;
+    const existing = data[id];
+    if (existing && new Date(existing.at) >= at) continue;
+
+    data[id] = {
+      channel: (value && value.channel) || 'разширение',
+      at: at.toISOString(),
+      phone,
+    };
+    added += 1;
+  }
+
+  writeJson(SENT_FILE, data);
+  return { added };
+}
+
 /* ------------------------------ импорт ------------------------------ */
 
 function saveImported(rows, meta = {}) {
@@ -108,6 +145,7 @@ module.exports = {
   markSent,
   unmarkSent,
   lastInviteForPhone,
+  mergeInvites,
   saveImported,
   getImported,
   clearImported,

@@ -55,6 +55,33 @@ let lastDiagnostics = null;
 const recentRoots = [];
 const RECENT_MS = 8000;
 
+/**
+ * Поканите се четат от chrome.storage асинхронно, а лентата се рисува
+ * синхронно при всяка промяна по страницата. Затова се държат в паметта и
+ * се обновяват при запис — иначе всяко пречертаване би чакало хранилището.
+ */
+let invites = new Map();
+
+async function refreshInvites() {
+  try {
+    invites = await loadInvites();
+  } catch (error) {
+    console.warn('[Покани за ревю] Не успях да прочета историята:', error);
+  }
+}
+
+function inviteFor(phone) {
+  return invites.get(phoneKey(phone)) || null;
+}
+
+/** Записва поканата и обновява кеша, за да си личи веднага. */
+async function markInvited(phone, name, channel) {
+  const record = await recordInvite(phone, channel);
+  if (record) invites.set(phoneKey(phone), record);
+  scheduleScan();
+  return record;
+}
+
 function noteAdded(nodes) {
   const now = Date.now();
   for (const node of nodes) {
@@ -410,6 +437,8 @@ function buildInlineBar(found) {
     status.textContent = text;
   };
 
+  const invited = phone ? inviteFor(phone) : null;
+
   const whatsapp = document.createElement('button');
   whatsapp.type = 'button';
   whatsapp.className = 'gr-bar-btn gr-wa';
@@ -419,6 +448,7 @@ function buildInlineBar(found) {
     event.stopPropagation();
     event.preventDefault();
     openWhatsApp(phone, buildMessage(name));
+    markInvited(phone, name, 'whatsapp');
     notify('Отворено.');
   });
 
@@ -431,6 +461,7 @@ function buildInlineBar(found) {
     event.stopPropagation();
     event.preventDefault();
     openViber(phone, buildMessage(name), notify);
+    markInvited(phone, name, 'viber');
   });
 
   const edit = document.createElement('button');
@@ -458,7 +489,9 @@ function buildInlineBar(found) {
 
   bar.append(label, whatsapp, viber, copy, edit, status);
 
-  if (!phone) {
+  if (invited) {
+    notify(`Този клиент вече е канен на ${formatDay(invited.day)}.`);
+  } else if (!phone) {
     notify('Не намерих телефон в този прозорец — натисни „Провери“, за да го въведеш.');
   } else if (!settings.googleReviewLink) {
     notify('Липсва линк към Google — виж настройките.');
@@ -490,7 +523,7 @@ function buildFooterBar(found) {
     button.className = `gr-pill ${className}`;
     button.textContent = label;
     button.title = title;
-    button.disabled = !phone && className !== 'gr-pill-ghost';
+    button.disabled = !phone && !className.includes('gr-pill-ghost');
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       event.preventDefault();
@@ -499,17 +532,33 @@ function buildFooterBar(found) {
     return button;
   };
 
+  const invited = phone ? inviteFor(phone) : null;
+  bar.dataset.grFor += invited ? `|${invited.day}` : '';
+
+  // Футърът е с непроменлива височина и не пренася на нов ред, затова
+  // състоянието не заема собствено място: показва се на мястото на „⋯“.
+  const checkLabel = invited ? '✓' : '⋯';
+  const checkTitle = invited
+    ? `Вече е канен(а) на ${formatDay(invited.day)} през ${CHANNEL_NAMES[invited.channel] || 'ръчно'}. Натисни, за да провериш.`
+    : 'Провери името, номера и текста преди изпращане';
+
   bar.append(
     pill('WhatsApp', 'gr-pill-wa', 'Отваря WhatsApp с готова покана за ревю', () => {
       openWhatsApp(phone, buildMessage(name));
+      markInvited(phone, name, 'whatsapp');
+      rememberClient({ phone, name });
     }),
     pill('Viber', 'gr-pill-vb', 'Отваря Viber с покана за ревю', () => {
       openViber(phone, buildMessage(name), toast);
+      markInvited(phone, name, 'viber');
+      rememberClient({ phone, name });
     }),
-    pill('⋯', 'gr-pill-ghost', 'Провери името, номера и текста преди изпращане', () => {
+    pill(checkLabel, `gr-pill-ghost${invited ? ' gr-pill-done' : ''}`, checkTitle, () => {
       openPanel({ name, phones: found.phones });
     })
   );
+
+  if (invited) bar.classList.add('gr-already-invited');
 
   if (!phone) {
     // Няма номер: бутоните са неактивни, но „⋯“ отваря панела за въвеждане.
@@ -520,6 +569,11 @@ function buildFooterBar(found) {
 }
 
 function injectInto(found) {
+  // Списъкът с клиенти се пълни от само себе си — от часовете, които отваряш.
+  if (found.phones && found.phones.length) {
+    rememberClient({ phone: found.phones[0], name: found.name || pickName(found.lines) });
+  }
+
   // Когато знаем футъра, бутоните влизат в него, до бутоните на Setmore.
   const target = found.anchor || found.element;
   const footerStyle = Boolean(found.anchor);
@@ -762,6 +816,7 @@ function createLauncher() {
     // Настройките се презареждат при всяко отваряне — може да са сменени
     // в друг таб, без страницата да е презареждана.
     settings = await loadSettings();
+    setCountryCode(settings.defaultCountryCode);
 
     const found = findByKnownAnchors() || findAppointmentPanel();
     openPanel(found ? { name: found.name || pickName(found.lines), phones: found.phones } : null);
@@ -772,6 +827,16 @@ function createLauncher() {
 
 async function init() {
   settings = await loadSettings();
+  setCountryCode(settings.defaultCountryCode);
+  await refreshInvites();
+
+  // Историята се синхронизира през акаунта в Chrome — ако се промени на
+  // друг компютър, кешът тук трябва да я догони.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && Object.keys(changes).some((key) => key.startsWith('gr_inv_'))) {
+      refreshInvites().then(scheduleScan);
+    }
+  });
 
   // Плаващият бутон има смисъл само в основната рамка — вградените рамки
   // само вкарват бутона в прозореца с часа.

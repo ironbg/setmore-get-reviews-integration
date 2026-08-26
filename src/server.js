@@ -84,6 +84,22 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+/**
+ * Разпознава резервно копие, свалено от разширението.
+ * Връща null, ако текстът е нещо друго — тогава минава обичайният импорт.
+ */
+function parseInviteBackup(text) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && parsed.format === 'setmore-review-invites' && parsed.invites ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Валидира "2026-08-26" и връща подадената резервна стойност, ако липсва. */
 function parseDate(value, fallback) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value;
@@ -148,6 +164,21 @@ function createServer(config = loadConfig()) {
 
         if (!text.trim()) {
           return sendJson(res, 400, { error: 'Няма съдържание за импортиране.' });
+        }
+
+        // Резервното копие на разширението идва през същото поле. Разпознава
+        // се по съдържание, за да няма втори бутон за качване.
+        const backup = parseInviteBackup(text);
+        if (backup) {
+          const merged = store.mergeInvites(backup.invites);
+          return sendJson(res, 200, {
+            kind: 'invites',
+            count: merged.added,
+            skipped: 0,
+            warnings: [
+              `Влети ${merged.added} покани от разширението. Тези клиенти вече няма да бъдат канени втори път.`,
+            ],
+          });
         }
 
         const result = importRows(text, {

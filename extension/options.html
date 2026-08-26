@@ -14,6 +14,15 @@
     button:hover { background: #55684a; }
     #saved { color: #55684a; font-weight: 600; margin-left: 12px; }
     .note { background: #f6f5f3; border-radius: 8px; padding: 12px 14px; font-size: .9rem; color: #6b635c; }
+    h2 { font-size: 1.05rem; margin-top: 8px; }
+    hr { border: none; border-top: 1px solid #e5e0da; margin: 32px 0 20px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .row button, .filelabel {
+      margin-top: 0; font: 600 14px/1 system-ui, sans-serif; border-radius: 8px;
+      padding: 10px 16px; cursor: pointer; border: 1px solid #ddd7d0;
+      background: #fff; color: #23201d; display: inline-flex; align-items: center;
+    }
+    .row button:hover, .filelabel:hover { background: #f6f5f3; }
     code { background: #eeeae5; padding: 1px 5px; border-radius: 4px; }
   </style>
 </head>
@@ -57,7 +66,29 @@
 
   <button id="save" type="button">Запази</button><span id="saved" hidden>Запазено ✓</span>
 
+  <hr>
+
+  <h2>Кого си поканил</h2>
+
+  <p class="note" id="stats">Зареждане…</p>
+
+  <p class="note">
+    Историята се пази в акаунта, с който си влязъл в Chrome, и се синхронизира
+    сама. Ако преинсталираш Windows и влезеш със същия акаунт, записите се
+    връщат. <strong>Ако не си влязъл в Chrome</strong>, историята стои само на
+    този компютър — тогава свали резервно копие.
+  </p>
+
+  <div class="row">
+    <button id="export" type="button" class="secondary">Свали резервно копие</button>
+    <label for="importFile" class="filelabel">Възстанови от копие</label>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
+  </div>
+
+  <p class="note" id="backupMsg" hidden></p>
+
   <script src="shared.js"></script>
+  <script src="storage.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

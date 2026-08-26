@@ -216,3 +216,19 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
 }
 #gr-toast[hidden] { display: none; }
+
+/* Отметка, че клиентът вече е канен. Бутоните остават работещи — понякога
+   поканата наистина трябва да се повтори — но се приглушават, за да не се
+   праща втори път по невнимание. */
+
+/* Канен клиент: бутоните се приглушават, а „⋯“ става ✓. Така състоянието
+   личи, без да заема място — футърът е с непроменлива височина. */
+.gr-footer-bar.gr-already-invited .gr-pill-wa,
+.gr-footer-bar.gr-already-invited .gr-pill-vb {
+  color: #8a8179 !important;
+}
+
+.gr-footer-bar .gr-pill-done {
+  color: #2f7d4f !important;
+  font-size: 14px !important;
+}

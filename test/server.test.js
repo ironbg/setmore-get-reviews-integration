@@ -185,3 +185,51 @@ test('непознат endpoint връща 404 в JSON', async () => {
   assert.equal(res.status, 404);
   assert.ok((await res.json()).error);
 });
+
+test('резервното копие от разширението се влива в историята на таблото', async () => {
+  const backup = JSON.stringify({
+    format: 'setmore-review-invites',
+    version: 1,
+    invites: {
+      '359888123456': { date: '2026-08-20', channel: 'Viber' },
+      '359899554433': { date: '2026-08-21', channel: 'WhatsApp' },
+    },
+  });
+
+  const imported = await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: backup }),
+  }).then((r) => r.json());
+
+  assert.equal(imported.kind, 'invites');
+  assert.equal(imported.count, 2);
+
+  // Клиентът трябва да излиза като вече канен и в таблото.
+  await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Име,Телефон\nМария Янкова,0888123456' }),
+  });
+
+  const listed = await fetch(`${base()}/api/appointments`).then((r) => r.json());
+  const row = listed.appointments.find((a) => a.phone === '+359888123456');
+
+  assert.ok(row.lastInvite, 'поканата от разширението трябва да се вижда тук');
+  assert.equal(row.lastInvite.channel, 'Viber');
+
+  await fetch(`${base()}/api/import`, { method: 'DELETE' });
+});
+
+test('обикновен CSV не се бърка с резервно копие', async () => {
+  const imported = await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Име,Телефон\nИван Георгиев,0899554433' }),
+  }).then((r) => r.json());
+
+  assert.notEqual(imported.kind, 'invites');
+  assert.equal(imported.count, 1);
+
+  await fetch(`${base()}/api/import`, { method: 'DELETE' });
+});
