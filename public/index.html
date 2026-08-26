@@ -11,14 +11,55 @@
   <header class="topbar">
     <div class="topbar-inner">
       <h1 id="studioName">Покани за Google ревю</h1>
-      <span id="demoBadge" class="badge badge-warn" hidden>демо данни</span>
+      <span id="sourceBadge" class="badge badge-warn" hidden></span>
     </div>
   </header>
 
   <main class="wrap">
+    <section class="panel" aria-labelledby="sourceHeading">
+      <h2 id="sourceHeading">1. Списъкът с клиенти</h2>
+
+      <div id="importState" class="import-state" hidden>
+        <p><strong id="importSummary"></strong></p>
+        <button type="button" id="clearImportBtn" class="btn btn-ghost">Качи друг списък</button>
+      </div>
+
+      <div id="importForm">
+        <details class="howto">
+          <summary>Откъде взимам списъка от Setmore</summary>
+          <ol>
+            <li><strong>Часове за период:</strong> Settings → Booking Page → Reports → избери периода → <em>Export as .XLS</em>. Отвори файла в Excel или Google Sheets, маркирай всичко, копирай и залепи по-долу.</li>
+            <li><strong>Всички клиенти:</strong> раздел Customers → менюто с трите чертички → <em>Export customers</em>. Файлът идва на имейла ти като .csv — качи го направо.</li>
+          </ol>
+          <p class="note-small">И двете са безплатни — платеното API не е нужно.</p>
+        </details>
+
+        <label class="field">
+          <span>Качи .csv файл</span>
+          <input type="file" id="fileInput" accept=".csv,.txt,.tsv,text/csv,text/plain">
+        </label>
+
+        <p class="or">или</p>
+
+        <label class="field">
+          <span>Залепи редовете от таблицата</span>
+          <textarea id="pasteArea" rows="5" placeholder="Име	Телефон	Дата	Услуга&#10;Мария Петрова	0888123456	26/08/2026	Класически масаж"></textarea>
+        </label>
+
+        <label class="field">
+          <span>Дата на посещението <small>(попълва се само ако списъкът няма колона с дата)</small></span>
+          <input type="date" id="fallbackDate">
+        </label>
+
+        <button type="button" id="importBtn" class="btn btn-primary">Зареди списъка</button>
+        <p id="importMsg" class="status" hidden></p>
+      </div>
+    </section>
+
     <section class="panel" aria-labelledby="periodHeading">
-      <h2 id="periodHeading">1. Кои часове</h2>
+      <h2 id="periodHeading">2. Кой ден</h2>
       <div class="quick-dates" role="group" aria-label="Бърз избор на период">
+        <button type="button" class="chip" data-range="all">Всички</button>
         <button type="button" class="chip" data-range="today">Днес</button>
         <button type="button" class="chip" data-range="yesterday">Вчера</button>
         <button type="button" class="chip" data-range="week">Последните 7 дни</button>
@@ -29,12 +70,12 @@
         <button type="button" id="reloadBtn" class="btn btn-primary">Покажи</button>
       </div>
       <label class="checkbox">
-        <input type="checkbox" id="hideSent"> Скрий вече поканените
+        <input type="checkbox" id="hideSent" checked> Скрий вече поканените
       </label>
     </section>
 
     <section class="panel" aria-labelledby="messageHeading">
-      <h2 id="messageHeading">2. Съобщението</h2>
+      <h2 id="messageHeading">3. Съобщението</h2>
       <label class="field">
         <span>Шаблон</span>
         <select id="templateSelect"></select>
@@ -54,7 +95,7 @@
     </section>
 
     <section class="panel" aria-labelledby="clientsHeading">
-      <h2 id="clientsHeading">3. Клиенти</h2>
+      <h2 id="clientsHeading">4. Клиенти</h2>
       <p id="statusLine" class="status">Зареждане…</p>
       <ul id="list" class="list"></ul>
     </section>

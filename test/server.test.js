@@ -46,12 +46,93 @@ test('/api/appointments връща часове и предупреждава з
   assert.ok(body.appointments.every((a) => 'phone' in a && 'sent' in a));
 });
 
-test('невалидна дата се подменя с днешната, вместо да чупи заявката', async () => {
+test('невалидна дата се пренебрегва, вместо да чупи заявката', async () => {
   const res = await fetch(`${base()}/api/appointments?from=утре`);
   const body = await res.json();
 
   assert.equal(res.status, 200);
-  assert.match(body.from, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(body.from, null, 'неразбираема дата означава "без филтър"');
+  assert.ok(body.count > 0);
+});
+
+test('импорт от залепени редове става източник на списъка', async () => {
+  const pasted = [
+    'Име\tТелефон\tДата\tУслуга',
+    'Мария Петрова\t0888123456\t26/08/2026\tКласически масаж',
+    'Иван Георгиев\t+359 899 55 44 33\t26/08/2026\tСпортен масаж',
+  ].join('\n');
+
+  const imported = await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: pasted, source: 'paste' }),
+  }).then((r) => r.json());
+
+  assert.equal(imported.count, 2);
+
+  const listed = await fetch(`${base()}/api/appointments`).then((r) => r.json());
+  assert.equal(listed.source, 'import', 'импортът бие демо данните');
+  assert.equal(listed.count, 2);
+  assert.equal(listed.appointments[0].phone, '+359888123456');
+
+  const filtered = await fetch(`${base()}/api/appointments?from=2026-08-27`).then((r) => r.json());
+  assert.equal(filtered.count, 0, 'филтърът по период трябва да работи и върху импорта');
+
+  await fetch(`${base()}/api/import`, { method: 'DELETE' });
+  const after = await fetch(`${base()}/api/appointments`).then((r) => r.json());
+  assert.equal(after.source, 'demo', 'след изчистване се връщаме към демо данните');
+});
+
+test('празен импорт връща разбираема грешка', async () => {
+  const res = await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: '   ' }),
+  });
+
+  assert.equal(res.status, 400);
+  assert.ok((await res.json()).error);
+});
+
+test('файл без разпознаваеми клиенти не се записва', async () => {
+  const res = await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: ',,,\n,,,' }),
+  });
+
+  assert.equal(res.status, 400);
+
+  const listed = await fetch(`${base()}/api/appointments`).then((r) => r.json());
+  assert.equal(listed.source, 'demo', 'провалилият се импорт не бива да замести списъка');
+});
+
+test('поканата се помни по телефон, дори при друг час', async () => {
+  const phone = '+359888123456';
+
+  await fetch(`${base()}/api/sent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'стар-час', channel: 'viber', phone, name: 'Мария' }),
+  });
+
+  await fetch(`${base()}/api/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: 'Име,Телефон\nМария Петрова,0888123456' }),
+  });
+
+  const listed = await fetch(`${base()}/api/appointments`).then((r) => r.json());
+  const row = listed.appointments.find((a) => a.phone === phone);
+  assert.ok(row.lastInvite, 'клиентът вече е канен и това трябва да си личи');
+  assert.equal(row.lastInvite.channel, 'viber');
+
+  await fetch(`${base()}/api/sent`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'стар-час' }),
+  });
+  await fetch(`${base()}/api/import`, { method: 'DELETE' });
 });
 
 test('отбелязването като изпратено се запазва и се отменя', async () => {

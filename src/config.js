@@ -14,6 +14,7 @@ const DEFAULTS = {
   timezone: 'Europe/Sofia',
   port: 4321,
   setmore: {
+    // По избор: попълва се само ако имаш платен Setmore Pro с достъп до API.
     refreshToken: '',
     baseUrl: 'https://developer.setmore.com/api/v1',
     tokenPath: '/o/oauth2/token',
@@ -73,7 +74,8 @@ function loadConfig({ reload = false } = {}) {
   if (process.env.STUDIO_NAME) config.studioName = process.env.STUDIO_NAME;
   if (process.env.PORT) config.port = Number(process.env.PORT);
 
-  config.demoMode = !config.setmore.refreshToken;
+  // Платеното Setmore API е по избор — основният път е импорт на експорт.
+  config.hasApi = Boolean(config.setmore.refreshToken);
   config.configPath = CONFIG_PATH;
   config.examplePath = EXAMPLE_PATH;
 
@@ -89,7 +91,7 @@ function publicConfig(config) {
     defaultCountryCode: config.defaultCountryCode,
     timezone: config.timezone,
     templates: config.templates,
-    demoMode: config.demoMode,
+    hasApi: config.hasApi,
   };
 }
 

@@ -26,10 +26,11 @@ function shiftDays(isoString, days) {
   return isoDate(date);
 }
 
+/** Празен низ, ако в източника няма час — по-добре нищо, отколкото фалшиво 00:00. */
 function formatTime(start) {
-  if (!start) return '--:--';
+  if (!start || !String(start).includes('T')) return '';
   const date = new Date(start);
-  if (Number.isNaN(date.getTime())) return String(start).slice(11, 16) || '--:--';
+  if (Number.isNaN(date.getTime())) return String(start).slice(11, 16);
   return date.toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -118,20 +119,69 @@ async function api(path, options) {
 }
 
 async function loadAppointments() {
-  const from = el('fromDate').value;
-  const to = el('toDate').value || from;
+  const params = new URLSearchParams();
+  if (el('fromDate').value) params.set('from', el('fromDate').value);
+  if (el('toDate').value) params.set('to', el('toDate').value);
+
   el('statusLine').textContent = 'Зареждане…';
   el('list').innerHTML = '';
 
   try {
-    const data = await api(`/api/appointments?from=${from}&to=${to}`);
+    const data = await api(`/api/appointments?${params}`);
     state.appointments = data.appointments;
+    state.source = data.source;
+
+    const badge = el('sourceBadge');
+    badge.hidden = data.source === 'import';
+    badge.textContent = data.source === 'demo' ? 'демо данни' : data.source === 'api' ? 'от Setmore API' : '';
+
     el('statusLine').textContent = data.warning
-      ? `${data.count} часа · ${data.warning}`
-      : `${data.count} ${data.count === 1 ? 'час' : 'часа'} в избрания период`;
+      ? `${data.count} ${data.count === 1 ? 'клиент' : 'клиента'} · ${data.warning}`
+      : `${data.count} ${data.count === 1 ? 'клиент' : 'клиента'} в избрания период`;
     render();
   } catch (err) {
-    el('statusLine').textContent = `Не успях да заредя часовете: ${err.message}`;
+    el('statusLine').textContent = `Не успях да заредя списъка: ${err.message}`;
+  }
+}
+
+/* ------------------------------ импорт ------------------------------ */
+
+async function sendImport(text, source) {
+  const message = el('importMsg');
+  message.hidden = false;
+  message.textContent = 'Обработвам…';
+
+  try {
+    const data = await api('/api/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, source, fallbackDate: el('fallbackDate').value || null }),
+    });
+
+    const parts = [`Заредени ${data.count} ${data.count === 1 ? 'клиент' : 'клиента'}.`];
+    if (data.skipped) parts.push(`${data.skipped} реда бяха пропуснати (без име и телефон).`);
+    if (data.warnings && data.warnings.length) parts.push(...data.warnings);
+    message.textContent = parts.join(' ');
+
+    await refreshImportState();
+    setRange('all');
+  } catch (err) {
+    message.textContent = `Не се получи: ${err.message}`;
+  }
+}
+
+async function refreshImportState() {
+  state.config = await api('/api/config');
+
+  const hasImport = state.config.hasImport;
+  el('importState').hidden = !hasImport;
+  el('importForm').hidden = hasImport;
+
+  if (hasImport) {
+    const when = new Date(state.config.importedAt).toLocaleString('bg-BG', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+    el('importSummary').textContent = `Списъкът е зареден на ${when}.`;
   }
 }
 
@@ -140,7 +190,12 @@ async function setSent(appointment, channel) {
     const data = await api('/api/sent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: appointment.id, channel }),
+      body: JSON.stringify({
+        id: appointment.id,
+        channel,
+        phone: appointment.phone,
+        name: appointment.customerName,
+      }),
     });
     appointment.sent = data.sent;
   } catch (err) {
@@ -186,26 +241,32 @@ async function openViber(appointment) {
 
 function appointmentCard(appointment) {
   const item = document.createElement('li');
-  item.className = 'card' + (appointment.sent ? ' is-sent' : '');
+  item.className = 'card' + (appointment.sent || appointment.lastInvite ? ' is-sent' : '');
 
   const head = document.createElement('div');
   head.className = 'card-head';
-
-  const time = document.createElement('span');
-  time.className = 'card-time';
-  time.textContent = formatTime(appointment.start);
 
   const name = document.createElement('span');
   name.className = 'card-name';
   name.textContent = appointment.customerName;
 
-  head.append(time, name);
+  const time = formatTime(appointment.start);
+  if (time) {
+    const timeNode = document.createElement('span');
+    timeNode.className = 'card-time';
+    timeNode.textContent = time;
+    head.append(timeNode);
+  }
+  head.append(name);
 
-  if (appointment.sent) {
+  // Показваме и покана, пратена по друг повод на същия телефон — един клиент
+  // не бива да получава втора молба за отзив.
+  const invite = appointment.sent || appointment.lastInvite;
+  if (invite) {
     const note = document.createElement('span');
     note.className = 'sent-note';
-    const when = new Date(appointment.sent.at).toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' });
-    note.textContent = `✓ поканен(а) на ${when}`;
+    const when = new Date(invite.at).toLocaleDateString('bg-BG', { day: 'numeric', month: 'short', year: 'numeric' });
+    note.textContent = appointment.sent ? `✓ поканен(а) на ${when}` : `вече е канен(а) на ${when}`;
     head.append(note);
   }
 
@@ -272,7 +333,7 @@ function render() {
   list.innerHTML = '';
 
   const hideSent = el('hideSent').checked;
-  const visible = state.appointments.filter((a) => !(hideSent && a.sent));
+  const visible = state.appointments.filter((a) => !(hideSent && (a.sent || a.lastInvite)));
 
   if (visible.length === 0) {
     const empty = document.createElement('li');
@@ -296,11 +357,12 @@ function render() {
 function setRange(range) {
   const today = state.config.today;
   const ranges = {
+    all: ['', ''],
     today: [today, today],
     yesterday: [shiftDays(today, -1), shiftDays(today, -1)],
     week: [shiftDays(today, -6), today],
   };
-  const [from, to] = ranges[range] || ranges.today;
+  const [from, to] = ranges[range] || ranges.all;
   el('fromDate').value = from;
   el('toDate').value = to;
 
@@ -315,7 +377,6 @@ async function init() {
   state.config = await api('/api/config');
 
   el('studioName').textContent = `Покани за Google ревю · ${state.config.studioName}`;
-  el('demoBadge').hidden = !state.config.demoMode;
   el('linkWarning').hidden = Boolean(state.config.googleReviewLink);
 
   const select = el('templateSelect');
@@ -343,8 +404,40 @@ async function init() {
     chip.addEventListener('click', () => setRange(chip.dataset.range));
   });
 
+  el('importBtn').addEventListener('click', () => {
+    const text = el('pasteArea').value.trim();
+    if (!text) {
+      el('importMsg').hidden = false;
+      el('importMsg').textContent = 'Залепи редовете или избери файл.';
+      return;
+    }
+    sendImport(text, 'paste');
+  });
+
+  el('fileInput').addEventListener('change', (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => sendImport(String(reader.result), file.name);
+    reader.onerror = () => {
+      el('importMsg').hidden = false;
+      el('importMsg').textContent = 'Файлът не можа да бъде прочетен.';
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+
+  el('clearImportBtn').addEventListener('click', async () => {
+    await api('/api/import', { method: 'DELETE' });
+    el('pasteArea').value = '';
+    el('fileInput').value = '';
+    el('importMsg').hidden = true;
+    await refreshImportState();
+    loadAppointments();
+  });
+
   applyTemplate(0);
-  setRange('today');
+  await refreshImportState();
+  setRange('all');
 }
 
 init().catch((err) => {

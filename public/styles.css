@@ -193,3 +193,52 @@ textarea { resize: vertical; line-height: 1.5; }
     --shadow: 0 1px 2px rgba(0,0,0,.4);
   }
 }
+
+/* --- импорт на списък --- */
+
+.import-state { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.import-state p { margin: 0; }
+
+.howto {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: .9rem;
+}
+.howto summary { cursor: pointer; font-weight: 600; color: var(--accent-dark); }
+.howto ol { margin: 10px 0 0; padding-left: 20px; }
+.howto li { margin-bottom: 8px; }
+.howto li:last-child { margin-bottom: 0; }
+.note-small { color: var(--ink-soft); font-size: .85rem; margin: 10px 0 0; }
+
+.or {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: .85rem;
+  margin: 4px 0 12px;
+  position: relative;
+}
+.or::before,
+.or::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 24px);
+  border-top: 1px solid var(--line);
+}
+.or::before { left: 0; }
+.or::after { right: 0; }
+
+input[type="file"] {
+  font: inherit;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+#importMsg { margin-top: 12px; }

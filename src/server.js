@@ -6,6 +6,7 @@ const path = require('path');
 
 const { loadConfig, publicConfig } = require('./config');
 const { SetmoreClient } = require('./setmore');
+const { importRows } = require('./importer');
 const { demoAppointments } = require('./demoData');
 const store = require('./store');
 
@@ -31,19 +32,21 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
-function readBody(req, limitBytes = 64 * 1024) {
+function readBody(req, limitBytes = 8 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
+
     req.on('data', (chunk) => {
       size += chunk.length;
       if (size > limitBytes) {
-        reject(new Error('Заявката е твърде голяма.'));
+        reject(new Error('Файлът е твърде голям (над 8 MB).'));
         req.destroy();
         return;
       }
       chunks.push(chunk);
     });
+
     req.on('end', () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       if (!raw) return resolve({});
@@ -53,6 +56,7 @@ function readBody(req, limitBytes = 64 * 1024) {
         reject(new Error('Тялото на заявката не е валиден JSON.'));
       }
     });
+
     req.on('error', reject);
   });
 }
@@ -80,7 +84,7 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-/** Валидира "2026-08-26" и връща днешната дата, ако липсва. */
+/** Валидира "2026-08-26" и връща подадената резервна стойност, ако липсва. */
 function parseDate(value, fallback) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value;
   return fallback;
@@ -95,6 +99,30 @@ function todayISO(timezone) {
   }
 }
 
+/** Добавя към всеки ред дали вече е канен — и по този час, и по телефон изобщо. */
+function withInviteStatus(appointments) {
+  const sent = store.getSentMap();
+
+  return appointments
+    .map((appointment) => ({
+      ...appointment,
+      sent: sent[appointment.id] || null,
+      lastInvite: store.lastInviteForPhone(appointment.phone),
+    }))
+    .sort((a, b) => String(a.start || '').localeCompare(String(b.start || '')));
+}
+
+function filterByPeriod(rows, from, to) {
+  if (!from && !to) return rows;
+
+  return rows.filter((row) => {
+    // Ред без дата не се крие — иначе би изчезнал безшумно.
+    if (!row.start) return true;
+    const day = String(row.start).slice(0, 10);
+    return (!from || day >= from) && (!to || day <= to);
+  });
+}
+
 function createServer(config = loadConfig()) {
   const client = new SetmoreClient(config);
 
@@ -104,35 +132,87 @@ function createServer(config = loadConfig()) {
 
     try {
       if (pathname === '/api/config' && req.method === 'GET') {
-        return sendJson(res, 200, { ...publicConfig(config), today: todayISO(config.timezone) });
+        const imported = store.getImported();
+        return sendJson(res, 200, {
+          ...publicConfig(config),
+          today: todayISO(config.timezone),
+          hasImport: Boolean(imported && imported.rows && imported.rows.length),
+          importedAt: imported ? imported.importedAt : null,
+        });
+      }
+
+      /* Импорт на експортиран от Setmore списък — основният път без платено API. */
+      if (pathname === '/api/import' && req.method === 'POST') {
+        const body = await readBody(req);
+        const text = String(body.text || '');
+
+        if (!text.trim()) {
+          return sendJson(res, 400, { error: 'Няма съдържание за импортиране.' });
+        }
+
+        const result = importRows(text, {
+          defaultCountryCode: config.defaultCountryCode,
+          fallbackDate: parseDate(body.fallbackDate, null),
+        });
+
+        if (!result.rows.length) {
+          return sendJson(res, 400, {
+            error: 'Не разпознах нито един клиент в този файл.',
+            warnings: result.warnings,
+          });
+        }
+
+        store.saveImported(result.rows, {
+          source: body.source || 'paste',
+          skipped: result.skipped,
+          warnings: result.warnings,
+        });
+
+        return sendJson(res, 200, {
+          count: result.rows.length,
+          skipped: result.skipped,
+          warnings: result.warnings,
+          columns: result.columns,
+        });
+      }
+
+      if (pathname === '/api/import' && req.method === 'DELETE') {
+        store.clearImported();
+        return sendJson(res, 200, { cleared: true });
       }
 
       if (pathname === '/api/appointments' && req.method === 'GET') {
-        const today = todayISO(config.timezone);
-        const from = parseDate(url.searchParams.get('from'), today);
+        const from = parseDate(url.searchParams.get('from'), null);
         const to = parseDate(url.searchParams.get('to'), from);
 
+        const imported = store.getImported();
         let appointments;
+        let source;
         let warning = null;
 
-        if (config.demoMode) {
-          appointments = demoAppointments(from, config.defaultCountryCode);
-          warning = 'Демо режим: това са примерни данни. Добави refreshToken в config.json за истинските си часове.';
+        if (imported && imported.rows && imported.rows.length) {
+          source = 'import';
+          appointments = filterByPeriod(imported.rows, from, to);
+          if (imported.skipped) {
+            warning = `${imported.skipped} реда бяха пропуснати — нямаха нито име, нито телефон.`;
+          }
+        } else if (config.setmore.refreshToken) {
+          source = 'api';
+          const today = todayISO(config.timezone);
+          appointments = await client.getAppointments(from || today, to || from || today);
         } else {
-          appointments = await client.getAppointments(from, to);
+          source = 'demo';
+          appointments = demoAppointments(from || todayISO(config.timezone), config.defaultCountryCode);
+          warning = 'Демо режим с примерни данни. Импортирай списък от Setmore, за да видиш истинските си клиенти.';
         }
 
-        const sent = store.getSentMap();
-        const withStatus = appointments
-          .map((appointment) => ({ ...appointment, sent: sent[appointment.id] || null }))
-          .sort((a, b) => String(a.start).localeCompare(String(b.start)));
-
-        return sendJson(res, 200, { from, to, count: withStatus.length, warning, appointments: withStatus });
+        const rows = withInviteStatus(appointments);
+        return sendJson(res, 200, { from, to, source, count: rows.length, warning, appointments: rows });
       }
 
       if (pathname === '/api/sent' && req.method === 'POST') {
         const body = await readBody(req);
-        const record = store.markSent(body.id, body.channel, body.note);
+        const record = store.markSent(body.id, body.channel, { phone: body.phone, name: body.name });
         return sendJson(res, 200, { id: body.id, sent: record });
       }
 
@@ -161,10 +241,13 @@ if (require.main === module) {
   const server = createServer(config);
 
   server.listen(config.port, () => {
+    const imported = store.getImported();
     console.log('');
     console.log(`  ✅  Таблото е пуснато: http://localhost:${config.port}`);
-    if (config.demoMode) {
-      console.log('  ⚠️   Демо режим — липсва Setmore refreshToken в config.json.');
+    if (imported && imported.rows) {
+      console.log(`  📋  Зареден списък с ${imported.rows.length} клиента.`);
+    } else {
+      console.log('  📋  Още няма импортиран списък — качи го от самото табло.');
     }
     if (!config.googleReviewLink) {
       console.log('  ⚠️   Липсва googleReviewLink в config.json — съобщенията ще са без линк.');
@@ -173,4 +256,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer, todayISO, parseDate };
+module.exports = { createServer, todayISO, parseDate, filterByPeriod };
