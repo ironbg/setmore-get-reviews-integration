@@ -145,3 +145,74 @@
 
 .gr-bar-btn.gr-copy-inline { background: #8a8179; }
 .gr-bar-btn.gr-copy-inline:hover { background: #6b635c; }
+
+/* Лентата във футъра на прозореца с часа.
+
+   Мерките са взети от бутоните на Setmore: височина 32px, напълно заоблени
+   ъгли, надпис 12px. Целта е да изглежда като част от приложението, а не
+   като нещо залепено отгоре. */
+
+.gr-footer-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;  /* футърът е justify-end — така оставаме вляво */
+}
+
+/* Вторични бутони: контур и цветен надпис. Плътните цветове се биеха с
+   основния бутон на Setmore („Collect payment“), а поканата за ревю не е
+   по-важна от него. */
+/*
+ * !important не е разкош: Setmore задава свои правила за бутоните във футъра
+ * (`#appointment-footer button { border: … }`), а те бият нашите по
+ * специфичност. Без това контурите просто не се появяват.
+ */
+.gr-footer-bar .gr-pill {
+  height: 32px !important;
+  padding: 0 14px !important;
+  background: transparent !important;
+  border: 1px solid currentColor !important;
+  border-radius: 9999px !important;
+  font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  width: auto !important;
+  min-width: 0;
+  box-shadow: none !important;
+  transition: background-color .3s ease;
+}
+.gr-footer-bar .gr-pill:disabled { opacity: .4; cursor: default; }
+
+.gr-footer-bar .gr-pill-wa { color: #1da851 !important; }
+.gr-footer-bar .gr-pill-wa:not(:disabled):hover { background: rgba(37, 211, 102, .12) !important; }
+.gr-footer-bar .gr-pill-vb { color: #5b49d6 !important; }
+.gr-footer-bar .gr-pill-vb:not(:disabled):hover { background: rgba(115, 96, 242, .12) !important; }
+
+.gr-footer-bar .gr-pill-ghost {
+  width: 32px !important;
+  padding: 0 !important;
+  border-color: transparent !important;
+  color: #5a6672 !important;
+  font-size: 16px !important;
+}
+.gr-footer-bar .gr-pill-ghost:hover { background: rgba(0, 0, 0, .06) !important; }
+
+#gr-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  max-width: min(420px, calc(100vw - 32px));
+  background: #23201d;
+  color: #fff;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+#gr-toast[hidden] { display: none; }

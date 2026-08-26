@@ -16,6 +16,25 @@
 const MARK = 'data-gr-injected';
 const SCAN_DELAY_MS = 250;
 
+/**
+ * Точките, за които се хващаме в Setmore.
+ *
+ * Setmore бележи своите елементи с data-testid. Тези атрибути се менят
+ * несравнимо по-рядко от класовете, защото класовете са генерирани от
+ * Tailwind (`px-2 lg:px-1.5 bg-positive-secondary …`) и се пренаписват при
+ * всяка промяна по оформлението. Затова тук стоят testid-та, а гадаенето по
+ * съдържание остава само като резерва, ако Setmore ги смени.
+ */
+const SETMORE = {
+  // Футърът на прозореца с часа — там влизат бутоните.
+  footer: '#appointment-footer, [data-testid="app-widget-footer"]',
+  // Името на клиента.
+  name:
+    '[data-testid="app-widget-guest-added-name"], ' +
+    '[data-testid*="guest"][data-testid*="name"], ' +
+    '[data-testid*="customer-name"], [data-testid*="client-name"]',
+};
+
 /*
  * Клонове, които не са видим текст. Пропускането им е задължително:
  * вграденият JavaScript на страницата съдържа дълги поредици от цифри и
@@ -278,6 +297,35 @@ function findPhonelessDialog() {
   return null;
 }
 
+/**
+ * Разпознаване по познатите котви на Setmore. Това е основният път —
+ * никакво гадаене: футърът казва къде да влязат бутоните, а testid-то на
+ * името казва кой е клиентът.
+ */
+function findByKnownAnchors() {
+  const footer = document.querySelector(SETMORE.footer);
+  if (!footer || !isVisible(footer)) return null;
+
+  // Прозорецът е най-близкият родител, който съдържа и името на клиента.
+  let panel = footer.parentElement;
+  while (panel && panel !== document.body && !panel.querySelector(SETMORE.name)) {
+    panel = panel.parentElement;
+  }
+  if (!panel || panel === document.body) panel = footer.parentElement;
+
+  const harvested = harvest(panel);
+  const ranked = rankPhones(harvested.lines, settings.defaultCountryCode);
+  const nameNode = panel.querySelector(SETMORE.name);
+
+  return {
+    element: panel,
+    anchor: footer,
+    phones: ranked.phones,
+    lines: harvested.lines,
+    name: nameNode ? nameNode.textContent.trim() : pickName(harvested.lines),
+  };
+}
+
 /** Прозорецът с часа е най-малкият видим слой, в който има телефонен номер. */
 function findAppointmentPanel() {
   return scoreCandidates(panelCandidates()) || scoreCandidates(deepCandidates());
@@ -341,7 +389,7 @@ async function openViber(phone, message, notify) {
 /* --------------------- бутонът вътре в прозореца --------------------- */
 
 function buildInlineBar(found) {
-  const name = pickName(found.lines);
+  const name = found.name || pickName(found.lines);
   const phone = found.phones[0] || null;
 
   const bar = document.createElement('div');
@@ -419,9 +467,65 @@ function buildInlineBar(found) {
   return bar;
 }
 
+/**
+ * Компактна лента за футъра на Setmore.
+ *
+ * Футърът е `flex justify-end` и висок 60px, а бутоните в него са хапчета с
+ * височина 32px. Затова тук няма етикети и статус — само бутони в същия
+ * размер, подравнени вляво (margin-right: auto), за да не се блъскат с
+ * „Collect payment“.
+ */
+function buildFooterBar(found) {
+  const name = found.name || pickName(found.lines);
+  const phone = found.phones[0] || null;
+
+  const bar = document.createElement('div');
+  bar.setAttribute(MARK, '1');
+  bar.className = 'gr-footer-bar';
+  bar.dataset.grFor = `${phone}|${name}`;
+
+  const pill = (label, className, title, onClick) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `gr-pill ${className}`;
+    button.textContent = label;
+    button.title = title;
+    button.disabled = !phone && className !== 'gr-pill-ghost';
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      onClick();
+    });
+    return button;
+  };
+
+  bar.append(
+    pill('WhatsApp', 'gr-pill-wa', 'Отваря WhatsApp с готова покана за ревю', () => {
+      openWhatsApp(phone, buildMessage(name));
+    }),
+    pill('Viber', 'gr-pill-vb', 'Отваря Viber с покана за ревю', () => {
+      openViber(phone, buildMessage(name), toast);
+    }),
+    pill('⋯', 'gr-pill-ghost', 'Провери името, номера и текста преди изпращане', () => {
+      openPanel({ name, phones: found.phones });
+    })
+  );
+
+  if (!phone) {
+    // Няма номер: бутоните са неактивни, но „⋯“ отваря панела за въвеждане.
+    bar.title = 'Не намерих телефон в този час — натисни ⋯, за да го въведеш.';
+  }
+
+  return bar;
+}
+
 function injectInto(found) {
-  const bar = buildInlineBar(found);
-  const existing = found.element.querySelector('.gr-bar');
+  // Когато знаем футъра, бутоните влизат в него, до бутоните на Setmore.
+  const target = found.anchor || found.element;
+  const footerStyle = Boolean(found.anchor);
+
+  const bar = footerStyle ? buildFooterBar(found) : buildInlineBar(found);
+  const existing = target.querySelector(footerStyle ? '.gr-footer-bar' : '.gr-bar');
 
   if (existing) {
     if (existing.dataset.grFor === bar.dataset.grFor) return; // нищо не се е променило
@@ -429,10 +533,30 @@ function injectInto(found) {
     return;
   }
 
-  found.element.append(bar);
+  // Във футъра влизаме най-отпред, за да останем вляво от техните бутони.
+  if (footerStyle) target.prepend(bar);
+  else target.append(bar);
 }
 
 /* ------------------------- панелът на ръка ------------------------- */
+
+let toastTimer = null;
+
+/** Кратко съобщение долу на екрана — във футъра няма място за статус. */
+function toast(text) {
+  let node = document.getElementById('gr-toast');
+  if (!node) {
+    node = document.createElement('div');
+    node.id = 'gr-toast';
+    node.setAttribute(MARK, '1');
+    document.body.append(node);
+  }
+
+  node.textContent = text;
+  node.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.hidden = true; }, 4000);
+}
 
 function createPanel() {
   const node = document.createElement('div');
@@ -612,7 +736,7 @@ function buildDiagnostics() {
 function scan() {
   if (!settings) return;
 
-  const found = findAppointmentPanel() || findPhonelessDialog();
+  const found = findByKnownAnchors() || findAppointmentPanel() || findPhonelessDialog();
   if (found) injectInto(found);
 }
 
@@ -639,8 +763,8 @@ function createLauncher() {
     // в друг таб, без страницата да е презареждана.
     settings = await loadSettings();
 
-    const found = findAppointmentPanel();
-    openPanel(found ? { name: pickName(found.lines), phones: found.phones } : null);
+    const found = findByKnownAnchors() || findAppointmentPanel();
+    openPanel(found ? { name: found.name || pickName(found.lines), phones: found.phones } : null);
   });
 
   document.body.append(button);

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <title>Fake Setmore — истинска структура</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 0; background: #eef1f4; }
+    .sc-pane { position: fixed; top: 0; left: 0; width: 200px; height: 320px; background: #2c3e50; color: #cfd8e3; padding: 14px; }
+    .sc-pane a { display: block; color: #cfd8e3; text-decoration: none; padding: 5px 0; }
+    .cal { margin-left: 220px; padding: 20px; }
+    .slot { background: #fff; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; border-radius: 4px; }
+    .widget { position: absolute; top: 60px; left: 320px; width: 420px; background: #fff; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.22); }
+    .body { padding: 20px 24px 8px; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-end { justify-content: flex-end; }
+    .overflow-hidden { overflow: hidden; }
+    .w-full { width: 100%; }
+    .ml-auto { margin-left: auto; }
+    .ml-2 { margin-left: 8px; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .text-body-14 { font-size: 14px; font-weight: 600; }
+    .row { display: flex; gap: 10px; margin: 9px 0; color: #5a6672; font-size: 13px; }
+    .row b { color: #1f2933; min-width: 92px; font-weight: 600; }
+    #appointment-footer { padding: 8px 24px 24px; display: flex; justify-content: flex-end; height: 60px; box-sizing: content-box; align-items: center; }
+    #appointment-footer button { border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; height: 32px; }
+    #more-options-footer, #edit { width: 32px; color: #5a6672; background: transparent; }
+    #more-options-footer:hover, #edit:hover { background: #eceff2; }
+    #detail-take-payment { padding: 0 16px; font-size: 12px; font-weight: 600; background: #1d70f7; color: #fff; white-space: nowrap; }
+    .paid { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 6px; background: #d8f5e3; color: #17703f; font-size: 10px; border-radius: 4px; margin-left: auto; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <!--
+    Възпроизвежда истинската структура на Setmore, каквато е в докладвания
+    случай: data-testid атрибути, генерирани от Tailwind класове, име на
+    клиента в отделен span и футър с бутоните на приложението.
+  -->
+  <div class="sc-pane">
+    <h4>Студио Релакс</h4>
+    <a href="#">Календар</a><a href="#">Клиенти</a><a href="#">Услуги</a><a href="#">Настройки</a>
+    <div>Контакти на студиото<br>тел. 02 987 65 43<br>мобилен: 0894 11 22 33</div>
+  </div>
+
+  <div class="cal">
+    <h1>Календар</h1>
+    <div class="slot" data-open="1">10:00 — 11:00 · Класически масаж · Мария Янкова</div>
+    <div class="slot" data-open="2">15:00 — 16:00 · Спортен масаж · Петър Колев</div>
+  </div>
+
+  <div id="mount"></div>
+
+  <script>
+    const people = {
+      1: { name: 'Мария Янкова', phone: '0888 123 456', service: 'Класически масаж 60 мин', time: '10:00 – 11:00' },
+      2: { name: 'Петър Колев', phone: '+359 899 55 44 33', service: 'Спортен масаж 90 мин', time: '15:00 – 16:00' },
+    };
+
+    document.querySelectorAll('.slot').forEach((slot) => {
+      slot.addEventListener('click', () => {
+        const p = people[slot.dataset.open];
+        document.getElementById('mount').innerHTML = `
+        <div class="widget" data-eds-component="true">
+          <div class="body">
+            <div class="flex flex-col overflow-hidden w-full" data-eds-component="true">
+              <div class="flex items-center" data-eds-component="true">
+                <span data-testid="app-widget-guest-added-name" class="where:block text-body-14 max-w-[160px] truncate" data-eds-component="true">${p.name}</span>
+                <span data-testid="app-widget-payment-label" class="paid" data-eds-component="true"><span data-eds-component="true"><span data-eds-component="true">Paid</span></span></span>
+              </div>
+            </div>
+            <div class="row"><b>Услуга</b><span>${p.service}</span></div>
+            <div class="row"><b>Кога</b><span>26 Aug 2026, ${p.time}</span></div>
+            <div class="row"><b>Служител</b><span>Анна</span></div>
+            <div class="row"><b>Телефон</b><span>${p.phone}</span></div>
+          </div>
+          <div data-testid="app-widget-footer" id="appointment-footer" class="pt-2 px-6 pb-6 flex justify-end h-[60px]" data-eds-component="true">
+            <div class="awd-dropdown-container">
+              <button data-testid="app-widget-more-options" id="more-options-footer" label="More options" type="button" data-eds-component="true">⋮</button>
+            </div>
+            <button data-testid="app-widget-edit" id="edit" label="Edit button" type="button" class="ml-2" data-eds-component="true">✎</button>
+            <div class="ml-2" data-eds-component="true">
+              <button data-testid="app-widget-take-payment-detailPage" id="detail-take-payment" type="button" data-eds-component="true">Collect payment</button>
+            </div>
+          </div>
+        </div>`;
+      });
+    });
+  </script>
+</body>
+</html>
