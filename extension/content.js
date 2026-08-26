@@ -28,6 +28,34 @@ let panel = null;
 let scanTimer = null;
 let lastDiagnostics = null;
 
+/**
+ * Елементи, появили се наскоро. Прозорецът с часа се появява веднага след
+ * натискането — това е най-силният признак кой слой е той. Без него левият
+ * панел, който стои там през цялото време, лесно печели.
+ */
+const recentRoots = [];
+const RECENT_MS = 8000;
+
+function noteAdded(nodes) {
+  const now = Date.now();
+  for (const node of nodes) {
+    if (node && node.nodeType === 1 && !node.hasAttribute(MARK)) {
+      recentRoots.push({ element: node, at: now });
+    }
+  }
+  // Пазим списъка къс — иначе расте през целия сеанс.
+  while (recentRoots.length && now - recentRoots[0].at > RECENT_MS) recentRoots.shift();
+}
+
+function appearedRecently(element) {
+  const now = Date.now();
+  return recentRoots.some(
+    (entry) =>
+      now - entry.at <= RECENT_MS &&
+      (entry.element === element || entry.element.contains(element) || element.contains(entry.element))
+  );
+}
+
 /* --------------------------- четене на екрана --------------------------- */
 
 /**
@@ -55,6 +83,24 @@ function walk(root, visit) {
 
     for (let i = children.length - 1; i >= 0; i -= 1) stack.push(children[i]);
   }
+}
+
+const NAV_SELECTOR =
+  'nav, header, footer, [role="navigation"], [role="menu"], [role="menubar"], [role="banner"], ' +
+  '[class*="sidebar"], [class*="side-nav"], [class*="sidenav"], [class*="navbar"], [class*="nav-"], ' +
+  '[id*="sidebar"], [id*="menu"]';
+
+/**
+ * Менюта и заглавни ленти често съдържат телефона на самото студио.
+ * Освен по роля ги познаваме и по гъстота на връзките: меню е предимно
+ * линкове, а прозорец с час — предимно текст.
+ */
+function isNavigational(element) {
+  if (element.closest(NAV_SELECTOR)) return true;
+
+  const links = element.querySelectorAll('a[href]').length;
+  const textLength = (element.textContent || '').trim().length;
+  return links >= 4 && textLength < 800;
 }
 
 /** Коренните елементи съдържат всичко и никога не са изскачащият прозорец. */
@@ -91,13 +137,13 @@ function harvest(scope) {
       // offsetParent е null при display:none — скрит прозорец не бива да
       // подава телефон, докато на екрана не се вижда нищо.
       if (node.type !== 'password' && node.value && node.offsetParent !== null) {
-        extras.push(node.value);
+        pushLine(node.value);
       }
       return;
     }
 
     if (tag === 'A' && node.getAttribute('href') && node.getAttribute('href').startsWith('tel:')) {
-      extras.push(decodeURIComponent(node.getAttribute('href').slice(4)));
+      pushLine(decodeURIComponent(node.getAttribute('href').slice(4)));
     }
 
     for (const attribute of ['aria-label', 'title']) {
@@ -105,8 +151,15 @@ function harvest(scope) {
       if (value) extras.push(value);
     }
 
-    // Само листата носят собствен текст; иначе всеки родител го повтаря.
-    if (!node.children.length) pushLine(node.textContent);
+    // Взимаме само собствените текстови възли на елемента. „Листа без деца“
+    // не върши работа: <div>тел. 02 987 65 43<br>мобилен: …</div> има деца
+    // (<br>) и целият му текст се губеше. Така и родителят не повтаря текста
+    // на децата си.
+    const own = [];
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) own.push(child.nodeValue);
+    }
+    pushLine(own.join(' '));
   });
 
   return { lines, text: [...lines, ...extras].join('\n') };
@@ -159,20 +212,48 @@ function deepCandidates() {
   return found;
 }
 
+/**
+ * Колко даден слой прилича на прозореца с часа.
+ *
+ * „Най-малкият слой с телефон“ не е достатъчно — лявото меню може да е
+ * по-малко от прозореца и да спечели. Затова тежат признаци, които менюто
+ * няма: че е диалог, че току-що се е появил и че номерът в него стои до
+ * етикет „Телефон“.
+ */
+function scoreOf(element, ranked) {
+  if (isNavigational(element)) return -Infinity;
+
+  const rect = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  let score = 0;
+
+  if (element.matches('[role="dialog"], [aria-modal="true"]')) score += 100;
+  if (appearedRecently(element)) score += 70;
+  if (style.position === 'fixed' || style.position === 'absolute') score += 25;
+  if (Number(style.zIndex) > 0) score += 15;
+  if (ranked.labeled) score += 40;
+
+  // При равни други признаци по-малкият слой е по-вероятно самият прозорец.
+  score -= (rect.width * rect.height) / 200000;
+
+  return score;
+}
+
 function scoreCandidates(candidates) {
   const scored = [];
 
   for (const candidate of candidates) {
     const harvested = harvest(candidate);
-    const phones = findPhones(harvested.text, settings.defaultCountryCode);
-    if (!phones.length) continue;
+    const ranked = rankPhones(harvested.lines, settings.defaultCountryCode);
+    if (!ranked.phones.length) continue;
 
-    const rect = candidate.getBoundingClientRect();
-    scored.push({ element: candidate, phones, lines: harvested.lines, area: rect.width * rect.height });
+    const score = scoreOf(candidate, ranked);
+    if (score === -Infinity) continue;
+
+    scored.push({ element: candidate, phones: ranked.phones, lines: harvested.lines, score });
   }
 
-  // Най-малкият, защото по-големите слоеве съдържат номера само защото го обгръщат.
-  return scored.sort((a, b) => a.area - b.area)[0] || null;
+  return scored.sort((a, b) => b.score - a.score)[0] || null;
 }
 
 /**
@@ -186,8 +267,9 @@ function findPhonelessDialog() {
   );
 
   for (const dialog of dialogs) {
+    if (isNavigational(dialog)) continue;
     const harvested = harvest(dialog);
-    if (findPhones(harvested.text, settings.defaultCountryCode).length) continue;
+    if (rankPhones(harvested.lines, settings.defaultCountryCode).phones.length) continue;
     if (pickName(harvested.lines)) {
       return { element: dialog, phones: [], lines: harvested.lines };
     }
@@ -232,10 +314,27 @@ function openWhatsApp(phone, message) {
   window.open(whatsappLink(phone, message), '_blank', 'noopener');
 }
 
+/**
+ * Viber има две възможности и нито една не прави и двете неща:
+ *   viber://chat?number=…  — знае с кого, но не приема текст
+ *   viber://forward?text=… — носи текста, но получателят се избира на ръка
+ * Кое от двете се ползва, се решава от настройката viberMode.
+ */
 async function openViber(phone, message, notify) {
-  // Viber не приема готов текст при отваряне на чат — затова първо го копираме.
+  if (settings.viberMode === 'forward') {
+    // Копираме и в този режим — ако Viber не поеме текста, поне е под ръка.
+    await copyToClipboard(message);
+    notify('Viber се отваря с готов текст — избери клиента от списъка.');
+    window.location.href = viberForwardLink(message);
+    return;
+  }
+
   const copied = await copyToClipboard(message);
-  notify(copied ? 'Текстът е копиран — залепи го във Viber.' : 'Копирай текста на ръка и го залепи във Viber.');
+  notify(
+    copied
+      ? 'Текстът е копиран. Във Viber натисни в полето за писане и залепи (Ctrl+V).'
+      : 'Копирането не се получи — натисни „Копирай“ и залепи текста във Viber.'
+  );
   window.location.href = viberLink(phone);
 }
 
@@ -297,7 +396,19 @@ function buildInlineBar(found) {
     openPanel({ name, phones: found.phones });
   });
 
-  bar.append(label, whatsapp, viber, edit, status);
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'gr-bar-btn gr-copy-inline';
+  copy.textContent = 'Копирай';
+  copy.title = 'Копира съобщението, за да го залепиш където поискаш';
+  copy.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    const copied = await copyToClipboard(buildMessage(name));
+    notify(copied ? 'Съобщението е копирано.' : 'Копирането не се получи — виж „Провери“.');
+  });
+
+  bar.append(label, whatsapp, viber, copy, edit, status);
 
   if (!phone) {
     notify('Не намерих телефон в този прозорец — натисни „Провери“, за да го въведеш.');
@@ -423,7 +534,7 @@ function openPanel(prefill) {
   const selection = String(window.getSelection ? window.getSelection().toString() : '');
   const phones = (prefill && prefill.phones && prefill.phones.length)
     ? prefill.phones
-    : findPhones(selection, settings.defaultCountryCode);
+    : rankPhones(selection.split('\n'), settings.defaultCountryCode).phones;
 
   select.innerHTML = '';
   phones.forEach((phone) => {
@@ -474,12 +585,15 @@ function buildDiagnostics() {
 
   candidates.slice(0, 6).forEach((element, index) => {
     const harvested = harvest(element);
-    const phones = findPhones(harvested.text, settings.defaultCountryCode);
+    const ranked = rankPhones(harvested.lines, settings.defaultCountryCode);
     const rect = element.getBoundingClientRect();
 
     report.push(
       `— слой ${index + 1}: <${element.tagName.toLowerCase()} class="${String(element.className).slice(0, 80)}">`,
-      `  размер: ${Math.round(rect.width)}×${Math.round(rect.height)}, намерени номера: ${phones.length}`,
+      `  размер: ${Math.round(rect.width)}×${Math.round(rect.height)}, номера: ${ranked.phones.length}` +
+        `, навигация: ${isNavigational(element) ? 'да' : 'не'}` +
+        `, наскоро появил се: ${appearedRecently(element) ? 'да' : 'не'}` +
+        `, оценка: ${Math.round(scoreOf(element, ranked))}`,
       `  редове: ${maskDigits(harvested.lines.slice(0, 12).join(' | ')).slice(0, 400)}`,
       ''
     );
@@ -539,10 +653,10 @@ async function init() {
   // само вкарват бутона в прозореца с часа.
   if (window.top === window) createLauncher();
 
-  new MutationObserver(scheduleScan).observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) noteAdded(mutation.addedNodes);
+    scheduleScan();
+  }).observe(document.documentElement, { childList: true, subtree: true });
 
   // Прозорецът се отваря при натискане на час — сканираме и тогава, защото
   // част от промените идват без нови възли в DOM.

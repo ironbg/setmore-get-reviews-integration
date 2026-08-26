@@ -1,6 +1,6 @@
 'use strict';
 
-const FIELDS = ['studioName', 'googleReviewLink', 'defaultCountryCode', 'template'];
+const FIELDS = ['studioName', 'googleReviewLink', 'defaultCountryCode', 'viberMode', 'template'];
 
 async function restore() {
   const settings = await loadSettings();
@@ -17,6 +17,7 @@ document.getElementById('save').addEventListener('click', async () => {
   // Празен код на държава би счупил номерата — връщаме стойността по подразбиране.
   if (!values.defaultCountryCode) values.defaultCountryCode = DEFAULT_SETTINGS.defaultCountryCode;
   if (!values.template) values.template = DEFAULT_SETTINGS.template;
+  if (!values.viberMode) values.viberMode = DEFAULT_SETTINGS.viberMode;
 
   await chrome.storage.sync.set(values);
 

@@ -4,8 +4,13 @@
   <meta charset="utf-8">
   <title>Fake Setmore</title>
   <style>
-    body { font: 14px system-ui, sans-serif; margin: 0; background: #eef1f4; }
-    .cal { padding: 24px; }
+    body { font: 14px system-ui, sans-serif; margin: 0; background: #eef1f4; display: flex; min-height: 100vh; }
+    .sc-panel-left { position: fixed; top: 0; left: 0; width: 230px; height: 420px; background: #2c3e50; color: #cfd8e3; padding: 16px; overflow: auto; }
+    .spacer { width: 230px; flex: 0 0 auto; }
+    .sc-panel-left h4 { margin: 0 0 10px; color: #fff; font-size: 15px; }
+    .sc-panel-left a { display: block; color: #cfd8e3; text-decoration: none; padding: 7px 0; }
+    .sc-panel-left .contact { margin-top: 20px; font-size: 12px; line-height: 1.7; border-top: 1px solid #3d5266; padding-top: 12px; }
+    .cal { padding: 24px; flex: 1; }
     .slot { background: #fff; border-left: 4px solid #4a90d9; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; border-radius: 4px; }
     .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; }
     .backdrop.open { display: block; }
@@ -20,11 +25,29 @@
 </head>
 <body>
   <!--
-    Имитация на Setmore за проверка на разширението: безсмислени имена на
-    класове, прозорец, който се появява при натискане, телефон в input поле
-    и няколко вложени слоя отгоре — точно случаите, в които разпознаването
-    по селектори се проваля.
+    Имитация на Setmore за проверка на разширението.
+
+    Нарочно съдържа капаните от истинския интерфейс:
+      • ляво меню с телефона на самото студио — не бива да минава за клиент;
+      • безсмислени имена на класове;
+      • прозорец, който се появява при натискане и се преизползва;
+      • телефонът на клиента е стойност на input поле, не видим текст.
   -->
+  <div class="spacer"></div>
+  <div class="sc-panel-left" role="navigation">
+    <h4>Студио Релакс</h4>
+    <a href="#">Календар</a>
+    <a href="#">Клиенти</a>
+    <a href="#">Услуги</a>
+    <a href="#">Настройки</a>
+    <div class="contact">
+      Контакти на студиото<br>
+      тел. 02 987 65 43<br>
+      мобилен: 0894 11 22 33<br>
+      office@studio-relax.bg
+    </div>
+  </div>
+
   <div class="cal">
     <h1>Календар</h1>
     <div class="slot" data-open="1">09:00 — 10:00 · Класически масаж · Мария Петрова</div>

@@ -67,6 +67,58 @@ function findPhones(text, defaultCountryCode) {
   return found;
 }
 
+/** Етикети, след които следва телефон на клиента. */
+const PHONE_LABELS = ['phone', 'mobile', 'cell', 'tel', 'contact number', 'телефон', 'мобилен', 'гсм', 'gsm'];
+
+/** Контекст, който показва, че номерът е на самото студио, а не на клиент. */
+const BUSINESS_CONTEXT = [
+  'студио', 'салон', 'офис', 'office', 'контакт', 'support', 'помощ', 'reception',
+  'рецепция', 'fax', 'факс', 'адрес', 'address', 'нашия', 'нашите',
+];
+
+function containsAny(line, words) {
+  const lower = String(line || '').toLowerCase();
+  return words.some((word) => lower.includes(word));
+}
+
+/**
+ * Подрежда намерените номера по това доколко приличат на телефон на клиента.
+ *
+ * Само „първият намерен номер“ не върши работа: в интерфейса на Setmore
+ * телефонът на самото студио стои в лявото меню и лесно излиза пръв. Затова
+ * номер до етикет „Телефон“ се вдига напред, а номер до „Контакти на
+ * студиото“ се смъква назад.
+ *
+ * @param {string[]} lines редовете на прозореца, в реда на показване
+ * @returns {{phones: string[], labeled: boolean}}
+ */
+function rankPhones(lines, defaultCountryCode) {
+  const entries = [];
+  const seen = new Set();
+
+  (lines || []).forEach((line, index) => {
+    for (const phone of findPhones(line, defaultCountryCode)) {
+      if (seen.has(phone)) continue;
+      seen.add(phone);
+
+      const previous = index > 0 ? lines[index - 1] : '';
+      let priority = 0;
+
+      if (containsAny(line, PHONE_LABELS) || containsAny(previous, PHONE_LABELS)) priority += 2;
+      if (containsAny(line, BUSINESS_CONTEXT) || containsAny(previous, BUSINESS_CONTEXT)) priority -= 3;
+
+      entries.push({ phone, priority, index });
+    }
+  });
+
+  entries.sort((a, b) => b.priority - a.priority || a.index - b.index);
+
+  return {
+    phones: entries.map((entry) => entry.phone),
+    labeled: entries.length > 0 && entries[0].priority > 0,
+  };
+}
+
 /** Дали редът изобщо може да е име на човек. */
 function couldBeName(line) {
   const text = String(line || '').trim().replace(/\s+/g, ' ');
@@ -134,5 +186,5 @@ function maskDigits(text) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { findPhones, pickName, couldBeName, maskDigits, PHONE_PATTERN };
+  module.exports = { findPhones, rankPhones, pickName, couldBeName, maskDigits, PHONE_PATTERN };
 }

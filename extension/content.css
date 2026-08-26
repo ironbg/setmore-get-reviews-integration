@@ -142,3 +142,6 @@
   text-align: left;
 }
 .gr-link:hover { color: #55684a; }
+
+.gr-bar-btn.gr-copy-inline { background: #8a8179; }
+.gr-bar-btn.gr-copy-inline:hover { background: #6b635c; }

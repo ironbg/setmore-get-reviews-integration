@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Покана за Google ревю (Setmore)",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Добавя бутон в прозореца на запазен час в Setmore, който отваря Viber или WhatsApp с готова покана клиентът да остави отзив в Google.",
   "permissions": [
     "storage",

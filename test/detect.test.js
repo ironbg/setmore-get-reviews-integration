@@ -24,8 +24,13 @@ function loadExtension() {
   // обект, затова имената се вадят с отделен израз.
   const grab = (name) => vm.runInContext(name, sandbox);
   const findPhones = grab('findPhones');
+  const rankPhones = grab('rankPhones');
 
   return {
+    rankPhones: (lines, cc) => {
+      const result = rankPhones(lines, cc);
+      return { phones: [...result.phones], labeled: result.labeled };
+    },
     // Масивът се връща от другия realm и има собствен прототип — копираме го,
     // за да може deepEqual да го сравни с обикновен масив.
     findPhones: (text, cc) => [...findPhones(text, cc)],
@@ -121,4 +126,45 @@ test('името на служителя не се бърка с това на �
 test('служител преди клиента се прескача и без етикет "Клиент"', () => {
   const lines = ['Appointment', 'Staff', 'Анна', 'Мария Петрова', '0888 123 456'];
   assert.equal(ext.pickName(lines), 'Мария Петрова');
+});
+
+/* --- подредба на намерените номера --- */
+
+test('номер до етикет "Телефон" се предпочита пред останалите', () => {
+  const lines = ['Мария Петрова', 'Резервирано от 0894 11 22 33', 'Телефон', '0888 123 456'];
+  const ranked = ext.rankPhones(lines, '359');
+
+  assert.equal(ranked.phones[0], '+359888123456');
+  assert.equal(ranked.labeled, true);
+});
+
+test('етикет и номер на един ред също се хващат', () => {
+  const ranked = ext.rankPhones(['Иван Георгиев', 'Мобилен: 0899 55 44 33'], '359');
+  assert.equal(ranked.phones[0], '+359899554433');
+  assert.equal(ranked.labeled, true);
+});
+
+test('телефонът на студиото се смъква назад', () => {
+  const lines = ['Контакти на студиото', 'тел. 02 987 65 43', 'Клиент', 'Мария Петрова', 'Телефон', '0888 123 456'];
+  const ranked = ext.rankPhones(lines, '359');
+
+  assert.equal(ranked.phones[0], '+359888123456', 'номерът на клиента трябва да е пръв');
+  assert.ok(ranked.phones.includes('+35929876543'), 'но и другият остава като възможност');
+});
+
+test('без етикети редът на срещане решава', () => {
+  const ranked = ext.rankPhones(['0888123456', '0899554433'], '359');
+  assert.deepEqual(ranked.phones, ['+359888123456', '+359899554433']);
+  assert.equal(ranked.labeled, false);
+});
+
+test('един и същ номер не се повтаря', () => {
+  const ranked = ext.rankPhones(['Телефон: 0888 123 456', '+359888123456'], '359');
+  assert.deepEqual(ranked.phones, ['+359888123456']);
+});
+
+test('редове без номера дават празен резултат', () => {
+  const ranked = ext.rankPhones(['Мария Петрова', 'Класически масаж'], '359');
+  assert.deepEqual(ranked.phones, []);
+  assert.equal(ranked.labeled, false);
 });

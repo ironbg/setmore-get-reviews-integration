@@ -8,7 +8,7 @@
     h1 { font-size: 1.25rem; }
     label { display: block; margin-top: 18px; font-weight: 600; font-size: .9rem; }
     label small { font-weight: 400; color: #6b635c; display: block; }
-    input, textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 9px 11px; border: 1px solid #ddd7d0; border-radius: 8px; margin-top: 5px; }
+    input, textarea, select { width: 100%; box-sizing: border-box; font: inherit; padding: 9px 11px; border: 1px solid #ddd7d0; border-radius: 8px; margin-top: 5px; }
     textarea { resize: vertical; }
     button { margin-top: 20px; font: 600 15px/1 system-ui, sans-serif; background: #6b7f5e; color: #fff; border: none; border-radius: 8px; padding: 11px 20px; cursor: pointer; }
     button:hover { background: #55684a; }
@@ -36,6 +36,19 @@
   <label>Код на държавата <small>без плюс — за България е 359</small>
     <input id="defaultCountryCode" type="text" placeholder="359">
   </label>
+
+  <label>Как да се отваря Viber
+    <small>Viber не позволява едновременно да се посочи клиентът и да се попълни текстът — трябва да се избере кое от двете.</small>
+    <select id="viberMode">
+      <option value="chat">Отвори чата с клиента, текстът се копира (залепваш с Ctrl+V)</option>
+      <option value="forward">Отвори с готов текст, клиентът се избира от списъка</option>
+    </select>
+  </label>
+
+  <p class="note">
+    В WhatsApp текстът се попълва сам — ако клиентът има и двете, WhatsApp е
+    по-удобният избор за тази задача.
+  </p>
 
   <label>Текст на съобщението
     <small>{име} се заменя със собственото име, {студио} с името на студиото, {линк} с линка</small>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8">
+  <title>Fake Setmore — тежък случай</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 0; background: #eef1f4; }
+    /* Менюто е ПО-МАЛКО по площ от прозореца и съдържа телефона на студиото —
+       случаят, в който подборът „най-малкият слой“ бърка. */
+    .sc-pane { position: fixed; top: 0; left: 0; width: 200px; height: 300px; background: #2c3e50; color: #cfd8e3; padding: 14px; }
+    .sc-pane a { display: block; color: #cfd8e3; text-decoration: none; padding: 5px 0; }
+    .cal { margin-left: 220px; padding: 20px; }
+    .slot { background: #fff; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; border-radius: 4px; }
+    /* Прозорецът НЯМА role="dialog" и е по-голям от менюто. */
+    .sc-xyz { position: absolute; top: 70px; left: 300px; width: 460px; background: #fff; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 20px; }
+    .sc-xyz .r { margin: 7px 0; color: #555; }
+    .sc-xyz .r b { color: #222; display: inline-block; min-width: 90px; }
+  </style>
+</head>
+<body>
+  <div class="sc-pane">
+    <h4>Студио Релакс</h4>
+    <a href="#">Календар</a><a href="#">Клиенти</a><a href="#">Услуги</a><a href="#">Настройки</a>
+    <div>Контакти на студиото<br>тел. 02 987 65 43<br>мобилен: 0894 11 22 33</div>
+  </div>
+
+  <div class="cal">
+    <h1>Календар</h1>
+    <div class="slot" id="slot">14:00 — 15:00 · Лимфен дренаж · Десислава Илиева</div>
+  </div>
+
+  <div id="mount"></div>
+
+  <script>
+    document.getElementById('slot').addEventListener('click', () => {
+      document.getElementById('mount').innerHTML =
+        '<div class="sc-xyz">' +
+        '<h3>Десислава Илиева</h3>' +
+        '<div class="r"><b>Услуга</b>Лимфен дренаж 60 мин</div>' +
+        '<div class="r"><b>Кога</b>26 Aug 2026, 14:00 – 15:00</div>' +
+        '<div class="r"><b>Служител</b>Анна</div>' +
+        '<div class="r"><b>Телефон</b>0877 22 11 00</div>' +
+        '<div class="r"><b>Имейл</b>desi@example.com</div>' +
+        '<div><button>Edit</button> <button>Delete</button></div>' +
+        '</div>';
+    });
+  </script>
+</body>
+</html>
