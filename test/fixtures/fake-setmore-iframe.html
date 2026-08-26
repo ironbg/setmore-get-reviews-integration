@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fake Setmore (в рамка)</title>
+  <style>
+    body { margin: 0; font: 14px system-ui, sans-serif; }
+    header { background: #2c3e50; color: #fff; padding: 12px 20px; }
+    iframe { width: 100%; height: 640px; border: 0; }
+  </style>
+</head>
+<body>
+  <!--
+    Част от интерфейса на Setmore живее във вградена рамка. Ако разширението
+    не е с all_frames: true, скриптът никога не стига дотам и бутонът не се
+    появява — точно този случай проверява тази страница.
+  -->
+  <header>Setmore (обвивка)</header>
+  <iframe src="./fake-setmore.html" title="календар"></iframe>
+</body>
+</html>

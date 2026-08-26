@@ -1,3 +1,51 @@
+/* Лентата, която се вкарва вътре в прозореца на часа. Стиловете са нарочно
+   изрични (без наследяване от Setmore), за да изглежда еднакво навсякъде. */
+
+.gr-bar {
+  all: initial;
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 0 !important;
+  padding: 8px 10px;
+  background: #f2f5ef;
+  border: 1px solid #d9e0d3;
+  border-radius: 10px;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #23201d;
+  box-sizing: border-box;
+}
+
+.gr-bar-label {
+  font-weight: 650;
+  color: #55684a;
+  margin-right: 2px;
+}
+
+.gr-bar-btn {
+  font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 11px;
+  color: #fff;
+  cursor: pointer;
+}
+.gr-bar-btn.gr-wa { background: #25d366; }
+.gr-bar-btn.gr-wa:hover { background: #1da851; }
+.gr-bar-btn.gr-vb { background: #7360f2; }
+.gr-bar-btn.gr-vb:hover { background: #5b49d6; }
+.gr-bar-btn.gr-edit { background: #6b635c; }
+.gr-bar-btn.gr-edit:hover { background: #514a44; }
+
+.gr-bar-status {
+  font-size: 12px;
+  color: #6b635c;
+  flex-basis: 100%;
+}
+
+/* Плаващият бутон и панелът на ръка. */
+
 #gr-launcher {
   position: fixed;
   right: 20px;
@@ -35,7 +83,19 @@
 }
 #gr-panel[hidden] { display: none; }
 
+.gr-panel-head { display: flex; align-items: center; justify-content: space-between; }
 #gr-panel h2 { font-size: 14px; margin: 0 0 10px; font-weight: 650; }
+#gr-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: #6b635c;
+  cursor: pointer;
+  padding: 0 0 8px;
+}
+#gr-close:hover { color: #23201d; }
+
 #gr-panel label { display: block; font-size: 12px; color: #6b635c; margin: 8px 0 3px; }
 #gr-panel input,
 #gr-panel textarea,
@@ -67,5 +127,18 @@
 #gr-actions button:disabled { opacity: .45; cursor: not-allowed; }
 
 #gr-hint { font-size: 12px; color: #6b635c; margin: 10px 0 0; }
-#gr-hint a { color: #6b7f5e; }
 #gr-hint.gr-warn { color: #8a5d10; }
+
+.gr-link {
+  display: block;
+  margin-top: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: 12px/1.4 system-ui, sans-serif;
+  color: #6b7f5e;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+.gr-link:hover { color: #55684a; }

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fake Setmore</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; margin: 0; background: #eef1f4; }
+    .cal { padding: 24px; }
+    .slot { background: #fff; border-left: 4px solid #4a90d9; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; border-radius: 4px; }
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; }
+    .backdrop.open { display: block; }
+    .sc-hXlmSp { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 380px; background: #fff; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 18px; }
+    .sc-hXlmSp h3 { margin: 0 0 4px; font-size: 17px; }
+    .row { display: flex; gap: 8px; margin: 8px 0; font-size: 13px; color: #555; }
+    .row b { color: #222; font-weight: 600; min-width: 74px; }
+    .sc-hXlmSp input { border: 1px solid #ddd; border-radius: 4px; padding: 5px 7px; font: inherit; width: 100%; }
+    .btns { margin-top: 14px; display: flex; gap: 8px; }
+    .btns button { padding: 7px 14px; border: 1px solid #ccc; background: #f7f7f7; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!--
+    Имитация на Setmore за проверка на разширението: безсмислени имена на
+    класове, прозорец, който се появява при натискане, телефон в input поле
+    и няколко вложени слоя отгоре — точно случаите, в които разпознаването
+    по селектори се проваля.
+  -->
+  <div class="cal">
+    <h1>Календар</h1>
+    <div class="slot" data-open="1">09:00 — 10:00 · Класически масаж · Мария Петрова</div>
+    <div class="slot" data-open="2">11:30 — 13:00 · Спортен масаж · Иван Георгиев</div>
+  </div>
+
+  <div class="backdrop" id="backdrop">
+    <div class="sc-kTUwUJ">
+      <div class="sc-hXlmSp" role="dialog">
+        <h3 id="who">Мария Петрова</h3>
+        <div class="row"><b>Услуга</b><span>Класически масаж 60 мин</span></div>
+        <div class="row"><b>Кога</b><span>26 Aug 2026, 09:00 – 10:00</span></div>
+        <div class="row"><b>Служител</b><span>Анна</span></div>
+        <div class="row"><b>Телефон</b><input id="phone" value="0888 123 456" readonly></div>
+        <div class="row"><b>Имейл</b><span>maria@example.com</span></div>
+        <div class="btns">
+          <button>Edit</button><button>Reschedule</button><button>Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const people = {
+      1: { name: 'Мария Петрова', phone: '0888 123 456', service: 'Класически масаж 60 мин' },
+      2: { name: 'Иван Георгиев', phone: '+359 899 55 44 33', service: 'Спортен масаж 90 мин' },
+    };
+    document.querySelectorAll('.slot').forEach((slot) => {
+      slot.addEventListener('click', () => {
+        const person = people[slot.dataset.open];
+        document.getElementById('who').textContent = person.name;
+        document.getElementById('phone').value = person.phone;
+        document.getElementById('backdrop').classList.add('open');
+      });
+    });
+    document.getElementById('backdrop').addEventListener('click', (event) => {
+      if (event.target.id === 'backdrop') event.currentTarget.classList.remove('open');
+    });
+  </script>
+</body>
+</html>
