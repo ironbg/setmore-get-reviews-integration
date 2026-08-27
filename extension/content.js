@@ -501,21 +501,22 @@ function buildInlineBar(found) {
 }
 
 /**
- * Компактна лента за футъра на Setmore.
+ * Собствен ред под футъра на прозореца.
  *
- * Футърът е `flex justify-end` и висок 60px, а бутоните в него са хапчета с
- * височина 32px. Затова тук няма етикети и статус — само бутони в същия
- * размер, подравнени вляво (margin-right: auto), за да не се блъскат с
- * „Collect payment“.
+ * Първо бутоните влизаха в самия футър, но той е `flex justify-end` с
+ * непроменлива височина и не пренася на нов ред — при по-тесен прозорец
+ * лентата излизаше извън картата. Затова сега е отделен ред: цялата ширина,
+ * подравнен вляво, и има място бутоните да са плътни и добре видими.
  */
-function buildFooterBar(found) {
+function buildRow(found) {
   const name = found.name || pickName(found.lines);
   const phone = found.phones[0] || null;
+  const invited = phone ? inviteFor(phone) : null;
 
   const bar = document.createElement('div');
   bar.setAttribute(MARK, '1');
-  bar.className = 'gr-footer-bar';
-  bar.dataset.grFor = `${phone}|${name}`;
+  bar.className = 'gr-row';
+  bar.dataset.grFor = `${phone}|${name}${invited ? `|${invited.day}` : ''}`;
 
   const pill = (label, className, title, onClick) => {
     const button = document.createElement('button');
@@ -523,6 +524,7 @@ function buildFooterBar(found) {
     button.className = `gr-pill ${className}`;
     button.textContent = label;
     button.title = title;
+    // „Провери“ работи и без номер — тъкмо оттам се въвежда на ръка.
     button.disabled = !phone && !className.includes('gr-pill-ghost');
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -531,16 +533,6 @@ function buildFooterBar(found) {
     });
     return button;
   };
-
-  const invited = phone ? inviteFor(phone) : null;
-  bar.dataset.grFor += invited ? `|${invited.day}` : '';
-
-  // Футърът е с непроменлива височина и не пренася на нов ред, затова
-  // състоянието не заема собствено място: показва се на мястото на „⋯“.
-  const checkLabel = invited ? '✓' : '⋯';
-  const checkTitle = invited
-    ? `Вече е канен(а) на ${formatDay(invited.day)} през ${CHANNEL_NAMES[invited.channel] || 'ръчно'}. Натисни, за да провериш.`
-    : 'Провери името, номера и текста преди изпращане';
 
   bar.append(
     pill('WhatsApp', 'gr-pill-wa', 'Отваря WhatsApp с готова покана за ревю', () => {
@@ -553,18 +545,26 @@ function buildFooterBar(found) {
       markInvited(phone, name, 'viber');
       rememberClient({ phone, name });
     }),
-    pill(checkLabel, `gr-pill-ghost${invited ? ' gr-pill-done' : ''}`, checkTitle, () => {
+    pill('⋯', 'gr-pill-ghost', 'Провери името, номера и текста преди изпращане', () => {
       openPanel({ name, phones: found.phones });
     })
   );
 
-  if (invited) bar.classList.add('gr-already-invited');
+  // На собствен ред има място състоянието да се изпише с думи.
+  const note = document.createElement('span');
+  note.className = 'gr-row-note';
 
-  if (!phone) {
-    // Няма номер: бутоните са неактивни, но „⋯“ отваря панела за въвеждане.
-    bar.title = 'Не намерих телефон в този час — натисни ⋯, за да го въведеш.';
+  if (invited) {
+    note.textContent = `✓ канен(а) ${formatDay(invited.day)}`;
+    note.title = `Изпратено през ${CHANNEL_NAMES[invited.channel] || 'ръчно'}. Бутоните пак работят, ако искаш да пратиш повторно.`;
+    note.classList.add('gr-row-note-done');
+    bar.classList.add('gr-already-invited');
+  } else if (!phone) {
+    note.textContent = 'няма телефон — виж ⋯';
+    note.classList.add('gr-row-note-warn');
   }
 
+  bar.append(note);
   return bar;
 }
 
@@ -574,12 +574,11 @@ function injectInto(found) {
     rememberClient({ phone: found.phones[0], name: found.name || pickName(found.lines) });
   }
 
-  // Когато знаем футъра, бутоните влизат в него, до бутоните на Setmore.
-  const target = found.anchor || found.element;
-  const footerStyle = Boolean(found.anchor);
+  const ownRow = Boolean(found.anchor);
+  const bar = ownRow ? buildRow(found) : buildInlineBar(found);
 
-  const bar = footerStyle ? buildFooterBar(found) : buildInlineBar(found);
-  const existing = target.querySelector(footerStyle ? '.gr-footer-bar' : '.gr-bar');
+  // Търсим в целия прозорец: редът стои до футъра, а не вътре в него.
+  const existing = found.element.querySelector(ownRow ? '.gr-row' : '.gr-bar');
 
   if (existing) {
     if (existing.dataset.grFor === bar.dataset.grFor) return; // нищо не се е променило
@@ -587,9 +586,10 @@ function injectInto(found) {
     return;
   }
 
-  // Във футъра влизаме най-отпред, за да останем вляво от техните бутони.
-  if (footerStyle) target.prepend(bar);
-  else target.append(bar);
+  // Собствен ред веднага след футъра — така нищо не се блъска в бутоните на
+  // Setmore и лентата не може да излезе извън прозореца.
+  if (ownRow) found.anchor.after(bar);
+  else found.element.append(bar);
 }
 
 /* ------------------------- панелът на ръка ------------------------- */

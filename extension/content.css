@@ -146,34 +146,34 @@
 .gr-bar-btn.gr-copy-inline { background: #8a8179; }
 .gr-bar-btn.gr-copy-inline:hover { background: #6b635c; }
 
-/* Лентата във футъра на прозореца с часа.
+/* Собственият ред с бутоните, под футъра на прозореца с часа.
 
-   Мерките са взети от бутоните на Setmore: височина 32px, напълно заоблени
-   ъгли, надпис 12px. Целта е да изглежда като част от приложението, а не
-   като нещо залепено отгоре. */
+   Отделен ред, а не част от футъра: футърът е с непроменлива височина и не
+   пренася, затова при по-тесен прозорец бутоните излизаха извън картата.
+   Тук има цялата ширина — бутоните са плътни и се виждат отдалеч. */
 
-.gr-footer-bar {
-  display: flex;
+.gr-row {
+  display: flex !important;
   align-items: center;
-  gap: 8px;
-  margin-right: auto;  /* футърът е justify-end — така оставаме вляво */
+  gap: 10px;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0 24px 20px;   /* същите странични отстъпки като футъра (px-6) */
+  /* Футърът има собствен долен отстъп; без това между двата реда зее
+     празнина от над 50px в иначе стегнат прозорец. */
+  margin: -14px 0 0;
 }
 
-/* Вторични бутони: контур и цветен надпис. Плътните цветове се биеха с
-   основния бутон на Setmore („Collect payment“), а поканата за ревю не е
-   по-важна от него. */
-/*
- * !important не е разкош: Setmore задава свои правила за бутоните във футъра
- * (`#appointment-footer button { border: … }`), а те бият нашите по
- * специфичност. Без това контурите просто не се появяват.
- */
-.gr-footer-bar .gr-pill {
-  height: 32px !important;
-  padding: 0 14px !important;
-  background: transparent !important;
-  border: 1px solid currentColor !important;
+/* !important не е разкош: Setmore задава свои правила за бутоните в
+   прозореца и те бият нашите по специфичност. */
+.gr-row .gr-pill {
+  height: 36px !important;
+  padding: 0 18px !important;
+  border: none !important;
   border-radius: 9999px !important;
-  font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  font: 600 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  color: #fff !important;
   cursor: pointer;
   white-space: nowrap;
   display: inline-flex !important;
@@ -181,24 +181,38 @@
   justify-content: center;
   width: auto !important;
   min-width: 0;
-  box-shadow: none !important;
-  transition: background-color .3s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .12) !important;
+  transition: background-color .2s ease;
 }
-.gr-footer-bar .gr-pill:disabled { opacity: .4; cursor: default; }
+.gr-row .gr-pill:disabled { opacity: .4; cursor: default; box-shadow: none !important; }
 
-.gr-footer-bar .gr-pill-wa { color: #1da851 !important; }
-.gr-footer-bar .gr-pill-wa:not(:disabled):hover { background: rgba(37, 211, 102, .12) !important; }
-.gr-footer-bar .gr-pill-vb { color: #5b49d6 !important; }
-.gr-footer-bar .gr-pill-vb:not(:disabled):hover { background: rgba(115, 96, 242, .12) !important; }
+.gr-row .gr-pill-wa { background: #25d366 !important; }
+.gr-row .gr-pill-wa:not(:disabled):hover { background: #1da851 !important; }
+.gr-row .gr-pill-vb { background: #7360f2 !important; }
+.gr-row .gr-pill-vb:not(:disabled):hover { background: #5b49d6 !important; }
 
-.gr-footer-bar .gr-pill-ghost {
-  width: 32px !important;
+.gr-row .gr-pill-ghost {
+  width: 36px !important;
   padding: 0 !important;
-  border-color: transparent !important;
+  background: transparent !important;
   color: #5a6672 !important;
-  font-size: 16px !important;
+  font-size: 17px !important;
+  box-shadow: none !important;
 }
-.gr-footer-bar .gr-pill-ghost:hover { background: rgba(0, 0, 0, .06) !important; }
+.gr-row .gr-pill-ghost:hover { background: rgba(0, 0, 0, .06) !important; }
+
+/* Вече поканен: бутоните избледняват, за да не се праща втори път по
+   невнимание, но остават работещи. */
+.gr-row.gr-already-invited .gr-pill-wa { background: #9ed9b4 !important; }
+.gr-row.gr-already-invited .gr-pill-vb { background: #b7aef5 !important; }
+
+.gr-row-note {
+  font: 500 12px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin-left: auto;
+  text-align: right;
+}
+.gr-row-note-done { color: #2f7d4f; }
+.gr-row-note-warn { color: #8a5d10; }
 
 #gr-toast {
   position: fixed;

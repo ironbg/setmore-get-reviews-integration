@@ -118,21 +118,37 @@ async function run() {
     const page = await openFixture(browser, 'fake-setmore-real.html');
     await openAppointment(page, '.slot[data-open="1"]');
 
-    check('лентата е във футъра', await page.locator('#appointment-footer .gr-footer-bar').count(), 1);
-    check('нищо не влиза в лявото меню', await page.locator('.sc-pane .gr-footer-bar').count(), 0);
+    check('лентата е под футъра, в прозореца', await page.locator('.gr-row').count(), 1);
+    check('нищо не влиза в лявото меню', await page.locator('.sc-pane .gr-row').count(), 0);
     check(
       'разчита правилния клиент',
-      await page.evaluate(() => document.querySelector('.gr-footer-bar').dataset.grFor),
+      await page.evaluate(() => document.querySelector('.gr-row').dataset.grFor),
       '+359888123456|Мария Янкова'
     );
 
     await openAppointment(page, '.slot[data-open="2"]');
     check(
       'при друг час лентата се обновява',
-      await page.evaluate(() => document.querySelector('.gr-footer-bar').dataset.grFor),
+      await page.evaluate(() => document.querySelector('.gr-row').dataset.grFor),
       '+359899554433|Петър Колев'
     );
-    check('лентата не се дублира', await page.locator('.gr-footer-bar').count(), 1);
+    check('лентата не се дублира', await page.locator('.gr-row').count(), 1);
+
+    // Прозорецът на Setmore е тесен. Първоначално лентата стоеше във футъра,
+    // който не пренася на нов ред, и излизаше извън картата — оттук проверката.
+    const overflow = await page.evaluate(() => {
+      const card = document.querySelector('.widget').getBoundingClientRect();
+      const row = document.querySelector('.gr-row').getBoundingClientRect();
+      return {
+        наляво: Math.round(card.left - row.left),
+        надясно: Math.round(row.right - card.right),
+        надолу: Math.round(row.bottom - card.bottom),
+      };
+    });
+    check('не излиза наляво от прозореца', overflow.наляво <= 0, true);
+    check('не излиза надясно от прозореца', overflow.надясно <= 0, true);
+    check('не излиза под прозореца', overflow.надолу <= 0, true);
+
     check('без грешки в конзолата', page.grErrors.length, 0);
     await page.close();
   }
@@ -143,10 +159,10 @@ async function run() {
     const page = await openFixture(browser, 'fake-setmore-real.html');
     await openAppointment(page, '.slot[data-open="1"]');
 
-    check('преди изпращане няма отметка', await page.locator('.gr-pill-done').count(), 0);
+    check('преди изпращане няма отметка', await page.locator('.gr-row-note-done').count(), 0);
     await page.click('.gr-pill-wa');
     await page.waitForTimeout(700);
-    check('след изпращане се появява отметка', await page.locator('.gr-pill-done').count(), 1);
+    check('след изпращане се появява отметка', await page.locator('.gr-row-note-done').count(), 1);
     check(
       'клиентът е запомнен',
       await page.evaluate(() => Object.keys(window.__local.gr_clients || {}).length),
@@ -160,10 +176,10 @@ async function run() {
     // Нов браузър със същите синхронизирани данни — както след преинсталация.
     const page = await openFixture(browser, 'fake-setmore-real.html', { restore: saved });
     await openAppointment(page, '.slot[data-open="1"]');
-    check('поканата преживява нов сеанс', await page.locator('.gr-pill-done').count(), 1);
+    check('поканата преживява нов сеанс', await page.locator('.gr-row-note-done').count(), 1);
 
     await openAppointment(page, '.slot[data-open="2"]');
-    check('друг клиент не е отбелязан', await page.locator('.gr-pill-done').count(), 0);
+    check('друг клиент не е отбелязан', await page.locator('.gr-row-note-done').count(), 0);
     await page.close();
   }
 
@@ -200,7 +216,7 @@ async function run() {
     await inner.locator('.slot[data-open="1"]').dispatchEvent('click');
     await page.waitForTimeout(700);
 
-    check('лентата влиза и вътре в рамката', await inner.locator('.gr-bar, .gr-footer-bar').count(), 1);
+    check('лентата влиза и вътре в рамката', await inner.locator('.gr-bar, .gr-row').count(), 1);
     check('плаващият бутон е само в основната рамка', await inner.locator('#gr-launcher').count(), 0);
     await page.close();
   }
