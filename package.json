@@ -1,11 +1,9 @@
 {
   "name": "setmore-review-invites",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Табло и Chrome разширение, които изпращат покана за Google ревю по Viber или WhatsApp към клиенти от Setmore.",
-  "main": "src/server.js",
+  "description": "Chrome разширение, което добавя в Setmore бутон за покана към клиента да остави отзив в Google по Viber или WhatsApp.",
   "scripts": {
-    "start": "node src/server.js",
     "test": "node --test test/*.test.js",
     "browser-check": "node test/browser-check.js"
   },

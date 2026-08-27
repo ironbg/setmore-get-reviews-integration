@@ -246,3 +246,19 @@
   color: #2f7d4f !important;
   font-size: 14px !important;
 }
+
+/* Клиент, помолил да не получава съобщения. */
+.gr-row.gr-blocked .gr-pill-wa,
+.gr-row.gr-blocked .gr-pill-vb {
+  background: #cfcac4 !important;
+}
+
+#gr-status-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee9e3;
+}
+#gr-status-actions .gr-link { margin-top: 0; }

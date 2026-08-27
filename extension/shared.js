@@ -4,9 +4,6 @@ const DEFAULT_SETTINGS = {
   studioName: 'Моето студио',
   googleReviewLink: '',
   defaultCountryCode: '359',
-  // 'chat'    — отваря чата с клиента, текстът се копира за залепване
-  // 'forward' — отваря Viber с готов текст, получателят се избира на ръка
-  viberMode: 'chat',
   template:
     'Здравейте, {име}! 🌿 Благодарим Ви, че ни се доверихте днес в {студио}. ' +
     'Ако сте останали доволни, ще се радваме много на кратък отзив в Google — ' +
@@ -67,12 +64,3 @@ function viberLink(e164) {
   return `viber://chat?number=${encodeURIComponent(e164)}`;
 }
 
-/**
- * Отваря Viber с готов текст. Получателят се избира на ръка — това е
- * компромисът: viber://chat знае номера, но не приема текст, а
- * viber://forward приема текст, но не знае номера. Viber не предлага линк,
- * който да прави и двете.
- */
-function viberForwardLink(text) {
-  return `viber://forward?text=${encodeURIComponent(text || '')}`;
-}

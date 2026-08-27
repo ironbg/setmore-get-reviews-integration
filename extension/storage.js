@@ -20,8 +20,19 @@ const INVITE_PREFIX = 'gr_inv_';
 const INVITE_SHARDS = 16;
 const CLIENTS_KEY = 'gr_clients';
 
-const CHANNEL_CODES = { whatsapp: 'w', viber: 'v', manual: 'm' };
-const CHANNEL_NAMES = { w: 'WhatsApp', v: 'Viber', m: 'ръчно' };
+/*
+ * Записът за клиент отговаря на един въпрос: да пращам ли на този човек?
+ * Затова „не изпращай“ живее в същия списък като поканите, само с друг код на
+ * канала — така се синхронизира по същия начин и не иска второ хранилище.
+ */
+const DO_NOT_CONTACT = 'x';
+const CHANNEL_CODES = { whatsapp: 'w', viber: 'v', manual: 'm', blocked: DO_NOT_CONTACT };
+const CHANNEL_NAMES = { w: 'WhatsApp', v: 'Viber', m: 'ръчно', [DO_NOT_CONTACT]: 'не изпращай' };
+
+/** Клиент, който е помолил да не получава съобщения. */
+function isBlocked(record) {
+  return Boolean(record && record.channel === DO_NOT_CONTACT);
+}
 
 /*
  * Кодът на държавата, с който се допълват националните номера. Идва от
@@ -125,6 +136,14 @@ async function recordInvite(phone, channelName) {
   return { day: record[0], channel: record[1] };
 }
 
+/**
+ * Отбелязва клиента като „не изпращай“ или го връща обратно.
+ * Връщането трие записа изцяло — тогава клиентът е като всеки друг.
+ */
+async function setDoNotContact(phone, on) {
+  return on ? recordInvite(phone, 'blocked') : forgetInvite(phone);
+}
+
 async function forgetInvite(phone) {
   const key = phoneKey(phone);
   const shardKey = shardFor(key);
@@ -212,7 +231,13 @@ async function importBackup(data) {
     if (current && current.day >= day) continue;
 
     const channelName = String(value.channel || '').toLowerCase();
-    const code = channelName.startsWith('what') ? 'w' : channelName.startsWith('vib') ? 'v' : 'm';
+    const code = channelName.startsWith('what')
+      ? 'w'
+      : channelName.startsWith('vib')
+        ? 'v'
+        : channelName.startsWith('не изпращай')
+          ? DO_NOT_CONTACT
+          : 'm';
 
     put(key, day, code);
     added += 1;
@@ -231,6 +256,7 @@ async function importBackup(data) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     phoneKey, setCountryCode, shardFor, loadInvites, recordInvite, forgetInvite,
+    setDoNotContact, isBlocked, DO_NOT_CONTACT,
     loadClients, rememberClient, exportBackup, importBackup,
     formatDay, today, CHANNEL_NAMES, INVITE_SHARDS,
   };

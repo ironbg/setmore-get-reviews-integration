@@ -25,7 +25,6 @@ const SETTINGS = {
   studioName: 'Студио Релакс',
   googleReviewLink: 'https://g.page/r/TEST/review',
   defaultCountryCode: '359',
-  viberMode: 'chat',
 };
 
 /**
@@ -181,6 +180,45 @@ async function run() {
     await openAppointment(page, '.slot[data-open="2"]');
     check('друг клиент не е отбелязан', await page.locator('.gr-row-note-done').count(), 0);
     await page.close();
+  }
+
+  console.log('\nОтмяна на отметка и „не изпращай“');
+  {
+    const page = await openFixture(browser, 'fake-setmore-real.html');
+    await openAppointment(page, '.slot[data-open="1"]');
+
+    // Отметката се слага при натискане, а не при реално изпращане — затова
+    // трябва да може да се махне.
+    await page.click('.gr-pill-wa');
+    await page.waitForTimeout(600);
+    check('отметката се появява', await page.locator('.gr-row-note-done').count(), 1);
+
+    await page.click('.gr-pill-ghost');
+    await page.waitForTimeout(300);
+    await page.click('#gr-undo');
+    await page.waitForTimeout(600);
+    check('отметката може да се махне', await page.locator('.gr-row-note-done').count(), 0);
+
+    // „Не изпращай“ спира бутоните.
+    await page.click('#gr-block');
+    await page.waitForTimeout(600);
+    check('появява се знак „не изпращай“', await page.locator('.gr-row.gr-blocked').count(), 1);
+    check('WhatsApp е спрян', await page.locator('.gr-row .gr-pill-wa').isDisabled(), true);
+    check('Viber е спрян', await page.locator('.gr-row .gr-pill-vb').isDisabled(), true);
+
+    const kept = await page.evaluate(() => ({ sync: window.__sync, local: window.__local }));
+    await page.close();
+
+    const again = await openFixture(browser, 'fake-setmore-real.html', { restore: kept });
+    await openAppointment(again, '.slot[data-open="1"]');
+    check('„не изпращай“ преживява нов сеанс', await again.locator('.gr-row.gr-blocked').count(), 1);
+
+    await again.click('.gr-pill-ghost');
+    await again.waitForTimeout(300);
+    await again.click('#gr-block');
+    await again.waitForTimeout(600);
+    check('клиентът може да се върне обратно', await again.locator('.gr-row.gr-blocked').count(), 0);
+    await again.close();
   }
 
   console.log('\nРезервен път: без data-testid, с ляво меню');

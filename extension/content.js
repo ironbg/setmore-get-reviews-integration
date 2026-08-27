@@ -390,20 +390,11 @@ function openWhatsApp(phone, message) {
 }
 
 /**
- * Viber има две възможности и нито една не прави и двете неща:
- *   viber://chat?number=…  — знае с кого, но не приема текст
- *   viber://forward?text=… — носи текста, но получателят се избира на ръка
- * Кое от двете се ползва, се решава от настройката viberMode.
+ * Viber отваря чата с правилния човек, но не приема готов текст — това е
+ * ограничение на самия Viber, не на разширението. Затова съобщението се
+ * копира преди чатът да се отвори.
  */
 async function openViber(phone, message, notify) {
-  if (settings.viberMode === 'forward') {
-    // Копираме и в този режим — ако Viber не поеме текста, поне е под ръка.
-    await copyToClipboard(message);
-    notify('Viber се отваря с готов текст — избери клиента от списъка.');
-    window.location.href = viberForwardLink(message);
-    return;
-  }
-
   const copied = await copyToClipboard(message);
   notify(
     copied
@@ -534,6 +525,8 @@ function buildRow(found) {
     return button;
   };
 
+  const blocked = isBlocked(invited);
+
   bar.append(
     pill('WhatsApp', 'gr-pill-wa', 'Отваря WhatsApp с готова покана за ревю', () => {
       openWhatsApp(phone, buildMessage(name));
@@ -545,7 +538,7 @@ function buildRow(found) {
       markInvited(phone, name, 'viber');
       rememberClient({ phone, name });
     }),
-    pill('⋯', 'gr-pill-ghost', 'Провери името, номера и текста преди изпращане', () => {
+    pill('⋯', 'gr-pill-ghost', 'Провери, отмени отметка или спри съобщенията към този клиент', () => {
       openPanel({ name, phones: found.phones });
     })
   );
@@ -554,7 +547,14 @@ function buildRow(found) {
   const note = document.createElement('span');
   note.className = 'gr-row-note';
 
-  if (invited) {
+  if (blocked) {
+    // Молбата да не се пише е по-силна от всичко останало — бутоните спират.
+    note.textContent = '⛔ не изпращай на този клиент';
+    note.title = 'Отбелязан е като „не изпращай“. Върни го от ⋯, ако е по грешка.';
+    note.classList.add('gr-row-note-warn');
+    bar.classList.add('gr-blocked');
+    bar.querySelectorAll('.gr-pill-wa, .gr-pill-vb').forEach((button) => { button.disabled = true; });
+  } else if (invited) {
     note.textContent = `✓ канен(а) ${formatDay(invited.day)}`;
     note.title = `Изпратено през ${CHANNEL_NAMES[invited.channel] || 'ръчно'}. Бутоните пак работят, ако искаш да пратиш повторно.`;
     note.classList.add('gr-row-note-done');
@@ -635,6 +635,10 @@ function createPanel() {
       <button id="gr-copy" type="button">Копирай</button>
     </div>
     <p id="gr-hint"></p>
+    <div id="gr-status-actions">
+      <button id="gr-undo" type="button" class="gr-link" hidden>Отбележи като неизпратено</button>
+      <button id="gr-block" type="button" class="gr-link"></button>
+    </div>
     <button id="gr-diag" type="button" class="gr-link">Не разпознава клиента? Копирай диагностика</button>
   `;
   document.body.append(node);
@@ -668,6 +672,7 @@ function createPanel() {
   node.querySelector('#gr-phone').addEventListener('change', () => {
     node.querySelector('#gr-phone-manual').hidden = Boolean(value('#gr-phone'));
     updateButtons();
+    updateStatusActions(value('#gr-phone') || null);
   });
   node.querySelector('#gr-phone-manual').addEventListener('input', updateButtons);
 
@@ -686,6 +691,36 @@ function createPanel() {
     setHint(copied ? 'Съобщението е копирано.' : 'Копирането не се получи — маркирай текста на ръка.', !copied);
   });
 
+  /* Отметката се слага при натискане на бутона, а не при реално изпращане —
+     ако си се отказал или си натиснал по погрешка, оттук се маха. */
+  node.querySelector('#gr-undo').addEventListener('click', async () => {
+    const phone = currentPhone();
+    if (!phone) return;
+
+    await forgetInvite(phone);
+    invites.delete(phoneKey(phone));
+    setHint('Отметката е махната — клиентът пак ще излиза като непоканен.');
+    updateStatusActions(phone);
+    scheduleScan();
+  });
+
+  node.querySelector('#gr-block').addEventListener('click', async () => {
+    const phone = currentPhone();
+    if (!phone) return;
+
+    const nowBlocked = !isBlocked(invites.get(phoneKey(phone)));
+    await setDoNotContact(phone, nowBlocked);
+    await refreshInvites();
+
+    setHint(
+      nowBlocked
+        ? 'Записано. На този клиент няма да се изпращат покани.'
+        : 'Клиентът е върнат — пак може да получава покани.'
+    );
+    updateStatusActions(phone);
+    scheduleScan();
+  });
+
   node.querySelector('#gr-diag').addEventListener('click', async () => {
     const copied = await copyToClipboard(buildDiagnostics());
     setHint(
@@ -696,7 +731,22 @@ function createPanel() {
     );
   });
 
-  node.refresh = { setHint, updateButtons, refreshMessage };
+  /** Показва двата бутона според това какво знаем за клиента. */
+  function updateStatusActions(phone) {
+    const record = phone ? invites.get(phoneKey(phone)) : null;
+    const blocked = isBlocked(record);
+
+    node.querySelector('#gr-undo').hidden = !record || blocked;
+    node.querySelector('#gr-block').textContent = blocked
+      ? 'Върни клиента — пак може да получава покани'
+      : 'Не изпращай на този клиент';
+
+    // Блокиран клиент не бива да се праща и оттук.
+    node.querySelector('#gr-wa').disabled = blocked || node.querySelector('#gr-wa').disabled;
+    node.querySelector('#gr-vb').disabled = blocked || node.querySelector('#gr-vb').disabled;
+  }
+
+  node.refresh = { setHint, updateButtons, refreshMessage, updateStatusActions };
   return node;
 }
 
@@ -732,8 +782,13 @@ function openPanel(prefill) {
 
   panel.refresh.refreshMessage();
   panel.refresh.updateButtons();
+  panel.refresh.updateStatusActions(select.value || null);
 
-  if (!settings.googleReviewLink) {
+  const record = select.value ? invites.get(phoneKey(select.value)) : null;
+
+  if (isBlocked(record)) {
+    panel.refresh.setHint('Този клиент е отбелязан като „не изпращай“.', true);
+  } else if (!settings.googleReviewLink) {
     panel.refresh.setHint('Липсва линк към Google профила. Отвори настройките на разширението.', true);
   } else if (!phones.length) {
     panel.refresh.setHint(

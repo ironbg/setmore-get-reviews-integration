@@ -77,6 +77,8 @@ function loadStorage({ enforceQuota = false, failWrites = false } = {}) {
     rememberClient: grab('rememberClient'),
     exportBackup: grab('exportBackup'),
     importBackup: grab('importBackup'),
+    setDoNotContact: grab('setDoNotContact'),
+    isBlocked: grab('isBlocked'),
     today: grab('today'),
     INVITE_SHARDS: grab('INVITE_SHARDS'),
   };
@@ -254,4 +256,66 @@ test('повредени записи в копието се прескачат,
 
   assert.equal(result.added, 1);
   assert.equal((await store.loadInvites()).size, 1);
+});
+
+/* --------------------- „не изпращай на този клиент“ --------------------- */
+
+test('клиент може да се отбележи като "не изпращай"', async () => {
+  const store = loadStorage();
+
+  await store.setDoNotContact('+359888123456', true);
+  const record = (await store.loadInvites()).get(store.phoneKey('+359888123456'));
+
+  assert.ok(store.isBlocked(record), 'записът трябва да е разпознат като блокиран');
+});
+
+test('обикновена покана не се брои за "не изпращай"', async () => {
+  const store = loadStorage();
+
+  await store.recordInvite('+359888123456', 'viber');
+  const record = (await store.loadInvites()).get(store.phoneKey('+359888123456'));
+
+  assert.equal(store.isBlocked(record), false);
+});
+
+test('връщането на клиента трие записа изцяло', async () => {
+  const store = loadStorage();
+
+  await store.setDoNotContact('+359888123456', true);
+  await store.setDoNotContact('+359888123456', false);
+
+  assert.equal((await store.loadInvites()).size, 0, 'клиентът трябва да е като всеки друг');
+});
+
+test('блокирането важи и когато клиентът вече е бил канен', async () => {
+  const store = loadStorage();
+
+  await store.recordInvite('+359888123456', 'whatsapp');
+  await store.setDoNotContact('+359888123456', true);
+
+  const record = (await store.loadInvites()).get(store.phoneKey('+359888123456'));
+  assert.ok(store.isBlocked(record), 'блокирането трябва да замести поканата');
+});
+
+test('отмяната на отметка връща клиента като непоканен', async () => {
+  const store = loadStorage();
+
+  await store.recordInvite('+359888123456', 'whatsapp');
+  await store.forgetInvite('+359888123456');
+
+  assert.equal((await store.loadInvites()).get(store.phoneKey('+359888123456')), undefined);
+});
+
+test('"не изпращай" се пази в резервното копие и се връща от него', async () => {
+  const store = loadStorage();
+  await store.setDoNotContact('+359888123456', true);
+
+  const backup = await store.exportBackup();
+  assert.equal(backup.invites[store.phoneKey('+359888123456')].channel, 'не изпращай');
+
+  const restored = loadStorage();
+  await restored.importBackup(backup);
+
+  const record = (await restored.loadInvites()).get(restored.phoneKey('+359888123456'));
+  assert.ok(restored.isBlocked(record), 'блокирането трябва да преживее копието');
 });
